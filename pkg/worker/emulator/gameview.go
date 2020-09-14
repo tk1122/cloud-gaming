@@ -1,4 +1,4 @@
-package ui
+package emulator
 
 import (
 	"image"
@@ -18,13 +18,8 @@ type GameView struct {
 	imageChannel chan *image.RGBA
 }
 
-func NewGameView(director *Director, console *nes.Console, title, hash string) View {
-	imageChannel := make(chan *image.RGBA, 2)
+func NewGameView(director *Director, console *nes.Console, title, hash string, imageChannel chan *image.RGBA) View {
 	return &GameView{director, console, title, hash, false, nil, imageChannel}
-}
-
-func (view *GameView) GetImageChannel() chan *image.RGBA {
-	return view.imageChannel
 }
 
 func (view *GameView) Enter() {
@@ -44,8 +39,6 @@ func (view *GameView) Enter() {
 }
 
 func (view *GameView) Exit() {
-	view.console.SetAudioChannel(nil)
-	view.console.SetAudioSampleRate(0)
 	// save sram
 	cartridge := view.console.Cartridge
 	if cartridge.Battery != 0 {
@@ -60,39 +53,9 @@ func (view *GameView) Update(t, dt float64) {
 		dt = 0
 	}
 	console := view.console
-	//if readKey(window, glfw.KeyEscape) {
-	//view.director.ShowMenu()
-	//}
-	//updateControllers(window, console)
-	view.imageChannel <- console.Buffer()
 	console.StepSeconds(dt)
+	view.imageChannel <- console.Buffer()
 	if view.record {
 		view.frames = append(view.frames, copyImage(console.Buffer()))
 	}
 }
-
-//func (view *GameView) onKey(window *glfw.Window,
-//key glfw.Key, scancode int, action glfw.Action, mods glfw.ModifierKey) {
-//if action == glfw.Press {
-//switch key {
-//case glfw.KeyR:
-//view.console.Reset()
-//case glfw.KeyTab:
-//if view.record {
-//view.record = false
-//view.frames = nil
-//} else {
-//view.record = true
-//}
-//}
-//}
-//}
-
-//func updateControllers(window *glfw.Window, console *nes.Console) {
-//turbo := console.PPU.Frame%6 < 3
-//k1 := readKeys(window, turbo)
-//j1 := readJoystick(glfw.Joystick1, turbo)
-//j2 := readJoystick(glfw.Joystick2, turbo)
-//console.SetButtons1(combineButtons(k1, j1))
-//console.SetButtons2(j2)
-//}

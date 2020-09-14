@@ -1,6 +1,7 @@
-package ui
+package emulator
 
 import (
+	"image"
 	"runtime"
 )
 
@@ -19,16 +20,7 @@ func init() {
 	runtime.LockOSThread()
 }
 
-func Run(path string) {
-	// initialize audio
-	//portaudio.Initialize()
-	//defer portaudio.Terminate()
-
-	//audio := NewAudio()
-	//if err := audio.Start(); err != nil {
-	//log.Fatalln(err)
-	//}
-	//defer audio.Stop()
-
-	// run director
+func Run(paths []string, imageChannel chan *image.RGBA) {
+	director := NewDirector(imageChannel)
+	director.Start(paths)
 }

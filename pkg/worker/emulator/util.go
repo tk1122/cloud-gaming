@@ -1,4 +1,4 @@
-package ui
+package emulator
 
 import (
 	"crypto/md5"
@@ -59,7 +59,6 @@ func hashFile(path string) (string, error) {
 	}
 	return fmt.Sprintf("%x", md5.Sum(data)), nil
 }
-
 func copyImage(src image.Image) *image.RGBA {
 	dst := image.NewRGBA(src.Bounds())
 	draw.Draw(dst, dst.Rect, src, image.ZP, draw.Src)
@@ -105,6 +104,26 @@ func saveGIF(path string, frames []image.Image) error {
 	}
 	defer file.Close()
 	return gif.EncodeAll(file, &g)
+}
+
+func screenshot(im image.Image) {
+	for i := 0; i < 1000; i++ {
+		path := fmt.Sprintf("%03d.png", i)
+		if _, err := os.Stat(path); os.IsNotExist(err) {
+			savePNG(path, im)
+			return
+		}
+	}
+}
+
+func animation(frames []image.Image) {
+	for i := 0; i < 1000; i++ {
+		path := fmt.Sprintf("%03d.gif", i)
+		if _, err := os.Stat(path); os.IsNotExist(err) {
+			saveGIF(path, frames)
+			return
+		}
+	}
 }
 
 func writeSRAM(filename string, sram []byte) error {

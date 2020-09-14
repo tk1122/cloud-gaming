@@ -7,7 +7,7 @@ import (
 
 	"github.com/pion/webrtc/v2"
 	"github.com/pion/webrtc/v2/pkg/media"
-	vpxEncoder "github.com/tk1122/cloud-gaming/pkg/worker/vpx-encoder"
+	vpxEncoder "github.com/poi5305/go-yuv2webRTC/vpx-encoder"
 )
 
 var config = webrtc.Configuration{ICEServers: []webrtc.ICEServer{{URLs: []string{"stun:stun.l.google.com:19302"}}}}

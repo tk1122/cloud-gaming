@@ -1,4 +1,4 @@
-package ui
+package emulator
 
 import (
 	"image"
@@ -11,17 +11,19 @@ import (
 type View interface {
 	Enter()
 	Exit()
-	GetImageChannel() chan *image.RGBA
 	Update(t, dt float64)
 }
 
 type Director struct {
-	view      View
-	timestamp float64
+	view         View
+	menuView     View
+	timestamp    float64
+	imageChannel chan *image.RGBA
 }
 
-func NewDirector() *Director {
+func NewDirector(imageChannel chan *image.RGBA) *Director {
 	director := Director{}
+	director.imageChannel = imageChannel
 	return &director
 }
 
@@ -33,12 +35,11 @@ func (d *Director) SetView(view View) {
 	if d.view != nil {
 		d.view.Enter()
 	}
-	d.timestamp = float64(time.Now().Unix())
+	d.timestamp = float64(time.Now().Nanosecond()) / float64(time.Second)
 }
 
 func (d *Director) Step() {
-	//timestamp := glfw.GetTime()
-	timestamp := float64(time.Now().Unix())
+	timestamp := float64(time.Now().Nanosecond()) / float64(time.Second)
 	dt := timestamp - d.timestamp
 	d.timestamp = timestamp
 	if d.view != nil {
@@ -46,13 +47,15 @@ func (d *Director) Step() {
 	}
 }
 
-func (d *Director) Start(path string) {
-	d.PlayGame(path)
+func (d *Director) Start(paths []string) {
+	d.PlayGame(paths[0])
 	d.Run()
 }
 
 func (d *Director) Run() {
-	d.SetView(nil)
+	for {
+		d.Step()
+	}
 }
 
 func (d *Director) PlayGame(path string) {
@@ -64,9 +67,5 @@ func (d *Director) PlayGame(path string) {
 	if err != nil {
 		log.Fatalln(err)
 	}
-	d.SetView(NewGameView(d, console, path, hash))
-}
-
-func (d *Director) GetImageChannel() chan *image.RGBA {
-	return d.view.GetImageChannel()
+	d.SetView(NewGameView(d, console, path, hash, d.imageChannel))
 }
