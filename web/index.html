@@ -75,17 +75,23 @@
         maxPacketLifeTime: 3000, // in milliseconds
     };
     const keysList = ["z", "x", "c", "v", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"]
-    const keysState =  new Array(keysList.length).fill(false)
+    const keysState = new Array(keysList.length).fill(false)
+    let unchangedPackets = 5;
+
+    const setKeyState = (id, state) => {
+        keysState[id] = state
+        unchangedPackets = 5;
+    }
 
     window.addEventListener("keydown", ev => {
         if (keysList.includes(ev.key)) {
-            keysState[keysList.indexOf(ev.key)] = true
+            setKeyState(keysList.indexOf(ev.key), true)
         }
     })
 
     window.addEventListener("keyup", ev => {
         if (keysList.includes(ev.key)) {
-            keysState[keysList.indexOf(ev.key)] = false
+            setKeyState(keysList.indexOf(ev.key), false)
         }
     })
 
@@ -97,9 +103,10 @@
             }, "")
 
             if (inputChannel.readyState === "open") {
-                // AFK
-                console.log(keyString)
-                inputChannel.send(keyString)
+                if (unchangedPackets > 0) {
+                    inputChannel.send(keyString)
+                    unchangedPackets--;
+                }
             } else {
                 clearInterval(sendInputInterval)
             }

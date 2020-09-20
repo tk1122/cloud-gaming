@@ -2,18 +2,16 @@ package main
 
 import (
 	"fmt"
+	"github.com/gorilla/mux"
+	"github.com/poi5305/go-yuv2webRTC/screenshot"
 	"github.com/tk1122/cloud-gaming/pkg/worker/emulator"
+	"github.com/tk1122/cloud-gaming/pkg/worker/webrtc"
 	"image"
 	"image/color"
 	"io/ioutil"
 	"log"
 	"math/rand"
 	"net/http"
-	"time"
-
-	"github.com/gorilla/mux"
-	"github.com/poi5305/go-yuv2webRTC/screenshot"
-	"github.com/tk1122/cloud-gaming/pkg/worker/webrtc"
 )
 
 var webRTC *webrtc.WebRTC
@@ -35,13 +33,7 @@ func main() {
 	router.HandleFunc("/", getWeb).Methods("GET")
 	router.HandleFunc("/session", postSession).Methods("POST")
 
-	go http.ListenAndServe(":8000", router)
-
-	// start screenshot loop, wait for connection
-	imageChannel := make(chan *image.RGBA, 2)
-	go screenshotLoop(imageChannel)
-	startGame("games/supermariobros.rom", imageChannel, webRTC.InputChannel)
-	time.Sleep(time.Minute)
+	http.ListenAndServe(":8000", router)
 }
 
 func getWeb(w http.ResponseWriter, r *http.Request) {
@@ -64,7 +56,12 @@ func postSession(w http.ResponseWriter, r *http.Request) {
 		log.Fatalln(err)
 	}
 
+	imageChannel := make(chan *image.RGBA, 2)
+	go screenshotLoop(imageChannel)
+	go startGame("games/supermariobros.rom", imageChannel, webRTC.InputChannel)
+
 	w.Write([]byte(localSession))
+
 }
 
 func randomImage(width, height int) *image.RGBA {
@@ -85,6 +82,5 @@ func screenshotLoop(imageChannel chan *image.RGBA) {
 			yuv := screenshot.RgbaToYuv(image)
 			webRTC.ImageChannel <- yuv
 		}
-		time.Sleep(10 * time.Millisecond)
 	}
 }
