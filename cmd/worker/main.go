@@ -13,7 +13,7 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/poi5305/go-yuv2webRTC/screenshot"
-	"github.com/poi5305/go-yuv2webRTC/webrtc"
+	"github.com/tk1122/cloud-gaming/pkg/worker/webrtc"
 )
 
 var webRTC *webrtc.WebRTC
@@ -23,8 +23,8 @@ var height = 240
 func init() {
 }
 
-func startGame(path string, imageChannel chan *image.RGBA) {
-	emulator.Run([]string{path}, imageChannel)
+func startGame(path string, imageChannel chan *image.RGBA, inputChannel chan string) {
+	emulator.Run([]string{path}, imageChannel, inputChannel)
 }
 
 func main() {
@@ -40,7 +40,7 @@ func main() {
 	// start screenshot loop, wait for connection
 	imageChannel := make(chan *image.RGBA, 2)
 	go screenshotLoop(imageChannel)
-	startGame("games/supermariobros.rom", imageChannel)
+	startGame("games/supermariobros.rom", imageChannel, webRTC.InputChannel)
 	time.Sleep(time.Minute)
 }
 

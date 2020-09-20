@@ -1,6 +1,8 @@
 package webrtc
 
 import (
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"math/rand"
 	"time"
@@ -10,15 +12,17 @@ import (
 	vpxEncoder "github.com/poi5305/go-yuv2webRTC/vpx-encoder"
 )
 
-var config = webrtc.Configuration{ICEServers: []webrtc.ICEServer{{URLs: []string{"stun:stun.l.google.com:19302"}}}}
-
-// Allows compressing offer/answer to bypass terminal input limits.
-const compress = false
+var config = webrtc.Configuration{
+	BundlePolicy: webrtc.BundlePolicyMaxBundle,
+	ICEServers: []webrtc.ICEServer{
+		{URLs: []string{"stun:stun.l.google.com:19302"}},
+	}}
 
 // NewWebRTC create
 func NewWebRTC() *WebRTC {
 	w := &WebRTC{
 		ImageChannel: make(chan []byte, 2),
+		InputChannel: make(chan string, 2),
 	}
 	return w
 }
@@ -27,9 +31,11 @@ func NewWebRTC() *WebRTC {
 type WebRTC struct {
 	connection  *webrtc.PeerConnection
 	encoder     *vpxEncoder.VpxEncoder
+	vp8Track    *webrtc.Track
 	isConnected bool
 	// for yuvI420 image
 	ImageChannel chan []byte
+	InputChannel chan string
 }
 
 // StartClient start webrtc
@@ -47,6 +53,14 @@ func (w *WebRTC) StartClient(remoteSession string, width, height int) (string, e
 		time.Sleep(2 * time.Second)
 	}
 
+	offer := webrtc.SessionDescription{}
+	Decode(remoteSession, &offer)
+
+	// safari VP8 payload default is not 96. Maybe 100
+	m := webrtc.MediaEngine{}
+	m.RegisterCodec(webrtc.NewRTPVP8Codec(96, 90000))
+	api := webrtc.NewAPI(webrtc.WithMediaEngine(m))
+
 	encoder, err := vpxEncoder.NewVpxEncoder(width, height, 20, 1200, 5)
 	if err != nil {
 		return "", err
@@ -55,49 +69,67 @@ func (w *WebRTC) StartClient(remoteSession string, width, height int) (string, e
 
 	fmt.Println("=== StartClient ===")
 
-	w.connection, err = webrtc.NewPeerConnection(config)
+	conn, err := api.NewPeerConnection(config)
 	if err != nil {
 		return "", err
 	}
+	conn.OnDataChannel(func(channel *webrtc.DataChannel) {
+		channel.OnMessage(func(msg webrtc.DataChannelMessage) {
+			//println(string(msg.Data))
+			w.InputChannel <- string(msg.Data)
+		})
+	})
 
-	vp8Track, err := w.connection.NewTrack(webrtc.DefaultPayloadTypeVP8, rand.Uint32(), "video", "pion2")
+	w.connection = conn
+
+	vp8Track, err := w.connection.NewTrack(96, rand.Uint32(), "video", "robotmon")
 	if err != nil {
+		fmt.Println("Error: new xRobotmonScreen vp8 Track", err)
+		w.StopClient()
 		return "", err
 	}
 	_, err = w.connection.AddTrack(vp8Track)
 	if err != nil {
+		w.StopClient()
 		return "", err
 	}
+	w.vp8Track = vp8Track
 
 	w.connection.OnICEConnectionStateChange(func(connectionState webrtc.ICEConnectionState) {
 		fmt.Printf("ICE Connection State has changed: %s\n", connectionState.String())
 		if connectionState == webrtc.ICEConnectionStateConnected {
-			go func() {
-				w.isConnected = true
-				fmt.Println("ConnectionStateConnected")
-				w.startStreaming(vp8Track)
-			}()
-
+			w.isConnected = true
+			fmt.Println("ConnectionStateConnected")
+			w.startStreaming(vp8Track)
 		}
-		if connectionState == webrtc.ICEConnectionStateFailed || connectionState == webrtc.ICEConnectionStateClosed || connectionState == webrtc.ICEConnectionStateDisconnected {
+		if connectionState == webrtc.ICEConnectionStateDisconnected || connectionState == webrtc.ICEConnectionStateFailed || connectionState == webrtc.ICEConnectionStateClosed {
+			fmt.Println("ConnectionStateDisconnected")
 			w.StopClient()
 		}
 	})
 
-	offer := webrtc.SessionDescription{}
-	Decode(remoteSession, &offer)
-	if err != nil {
-		return "", err
-	}
 	err = w.connection.SetRemoteDescription(offer)
 	if err != nil {
+		fmt.Println("SetRemoteDescription error", err)
+		w.StopClient()
 		return "", err
 	}
+
 	answer, err := w.connection.CreateAnswer(nil)
 	if err != nil {
+		w.StopClient()
 		return "", err
 	}
+
+	err = w.connection.SetLocalDescription(answer)
+	if err != nil {
+		w.StopClient()
+		return "", err
+	}
+
+	answer = *w.connection.LocalDescription()
 	localSession := Encode(answer)
+	fmt.Println("=== StartClient Done ===")
 	return localSession, nil
 }
 
@@ -138,10 +170,28 @@ func (w *WebRTC) startStreaming(vp8Track *webrtc.Track) {
 			if i%10 == 0 {
 				fmt.Println("On Frame", len(bs), i)
 			}
-			//if len(vp8Track.Samples) < cap(vp8Track.Samples) {
-			//vp8Track.Samples <- media.Sample{Data: bs, Samples: 1}
-			//}
-			vp8Track.WriteSample(media.Sample{Data: bs, Samples: 1})
+			w.vp8Track.WriteSample(media.Sample{Data: bs, Samples: 1})
 		}
 	}()
+}
+
+func Decode(in string, obj interface{}) {
+	b, err := base64.StdEncoding.DecodeString(in)
+	if err != nil {
+		panic(err)
+	}
+
+	err = json.Unmarshal(b, obj)
+	if err != nil {
+		panic(err)
+	}
+}
+
+func Encode(obj interface{}) string {
+	b, err := json.Marshal(obj)
+	if err != nil {
+		panic(err)
+	}
+
+	return base64.StdEncoding.EncodeToString(b)
 }

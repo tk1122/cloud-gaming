@@ -20,7 +20,7 @@ func init() {
 	runtime.LockOSThread()
 }
 
-func Run(paths []string, imageChannel chan *image.RGBA) {
-	director := NewDirector(imageChannel)
+func Run(paths []string, imageChannel chan *image.RGBA, inputChannel chan string) {
+	director := NewDirector(imageChannel, inputChannel)
 	director.Start(paths)
 }

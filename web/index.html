@@ -1,57 +1,55 @@
 <html>
-
 <style>
     textarea {
         width: 60%;
         height: 50px;
     }
+
+    audio {
+        display: none;
+    }
 </style>
+<div id="remoteVideos"></div>
+<br/>
 <div>
-    <a href="https://github.com/poi5305/go-yuv2webRTC">https://github.com/poi5305/go-yuv2webRTC</a>
-    <br />
-    <a href="https://github.com/pions/webrtc/tree/v1.2.0/examples/gstreamer-send/jsfiddle">https://github.com/pions/webrtc/tree/v1.2.0/examples/gstreamer-send/jsfiddle</a>
+    Use Up, Down, Left, Right to move <br/>
+    Z to A <br/>
+    X to B <br/>
+    C to select <br/>
+    V to start <br/>
 </div>
 
-<div id="remoteVideos"></div> <br />
-Browser base64 Session Description <br /><textarea id="localSessionDescription" readonly="true"></textarea> <br />
-
-Golang base64 Session Description: <br /><textarea id="remoteSessionDescription"> </textarea> <br/>
-
-<button onclick="window.startSession()"> Start Session </button>
-<div id="div"></div>
-
-<div>
-    Refresh to retry
-</div>
+<button id="playGame" onclick="startStreaming()" disabled> Play Mario</button>
 <script>
-    function postSession(session) {
-        if (session == "") {
-            return;
-        }
-        var xhttp = new XMLHttpRequest();
-        xhttp.onreadystatechange = function() {
-            if (this.readyState == 4 && this.status == 200) {
-                document.getElementById('remoteSessionDescription').value = this.responseText;
+    const postSession = session => {
+        const xhttp = new XMLHttpRequest();
+        xhttp.onload = function () {
+            if (this.status === 200) {
+                remoteSessionDescription = this.responseText;
+                document.getElementById('playGame').disabled = false;
             }
         };
         xhttp.open("POST", "/session", true);
         xhttp.setRequestHeader("Content-type", "text/plain");
         xhttp.send(session);
+
+    }
+    const startStreaming = () => {
+        pc.setRemoteDescription(new RTCSessionDescription(JSON.parse(atob(remoteSessionDescription))))
     }
 
-    let pc = new RTCPeerConnection({
+    const pc = new RTCPeerConnection({
         iceServers: [
             {
                 urls: 'stun:stun.l.google.com:19302'
             }
         ]
     })
-    let log = msg => {
-        document.getElementById('div').innerHTML += msg + '<br>'
-    }
+    let remoteSessionDescription = ""
+    const inputChannel = pc.createDataChannel('keystrokes')
 
     pc.ontrack = function (event) {
-        var el = document.createElement(event.track.kind)
+        const el = document.createElement(event.track.kind)
         el.srcObject = event.streams[0]
         el.autoplay = true
         el.controls = true
@@ -59,29 +57,57 @@ Golang base64 Session Description: <br /><textarea id="remoteSessionDescription"
         document.getElementById('remoteVideos').appendChild(el)
     }
 
-    pc.oniceconnectionstatechange = e => log(pc.iceConnectionState)
+    pc.oniceconnectionstatechange = e => console.log(pc.iceConnectionState)
     pc.onicecandidate = event => {
         if (event.candidate === null) {
-            var session = btoa(JSON.stringify(pc.localDescription));
-            document.getElementById('localSessionDescription').value = session;
+            const session = btoa(JSON.stringify(pc.localDescription));
             postSession(session)
         }
     }
 
-    pc.createOffer({offerToReceiveVideo: true, offerToReceiveAudio: true}).then(d => pc.setLocalDescription(d)).catch(log)
+    pc.createOffer({
+        offerToReceiveVideo: true,
+        offerToReceiveAudio: true
+    }).then(d => pc.setLocalDescription(d))
 
-    window.startSession = () => {
-        let sd = document.getElementById('remoteSessionDescription').value
-        if (sd === '') {
-            return alert('Session Description must not be empty')
-        }
+    const fps = 100
+    const dataChannelOptions = {
+        ordered: false, // do not guarantee order
+        maxPacketLifeTime: 3000, // in milliseconds
+    };
+    const keysList = ["z", "x", "c", "v", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"]
+    const keysState =  new Array(keysList.length).fill(false)
 
-        try {
-            pc.setRemoteDescription(new RTCSessionDescription(JSON.parse(atob(sd))))
-        } catch (e) {
-            alert(e)
+    window.addEventListener("keydown", ev => {
+        if (keysList.includes(ev.key)) {
+            keysState[keysList.indexOf(ev.key)] = true
         }
+    })
+
+    window.addEventListener("keyup", ev => {
+        if (keysList.includes(ev.key)) {
+            keysState[keysList.indexOf(ev.key)] = false
+        }
+    })
+
+    const sendInputInterval = inputChannel.onopen = () => {
+        setInterval(() => {
+            const keyString = keysState.reduce((acc, key) => {
+                acc += key ? "1" : "0"
+                return acc
+            }, "")
+
+            if (inputChannel.readyState === "open") {
+                // AFK
+                if (keyString !== "00000000") {
+                    console.log(keyString)
+                    inputChannel.send(keyString)
+                }
+            } else {
+                clearInterval(sendInputInterval)
+            }
+        }, 1000 / fps)
     }
-
+    inputChannel.onclose = () => clearInterval(sendInputInterval)
 </script>
 </html>

@@ -19,12 +19,11 @@ type Director struct {
 	menuView     View
 	timestamp    float64
 	imageChannel chan *image.RGBA
+	inputChannel chan string
 }
 
-func NewDirector(imageChannel chan *image.RGBA) *Director {
-	director := Director{}
-	director.imageChannel = imageChannel
-	return &director
+func NewDirector(imageChannel chan *image.RGBA, inputChannel chan string) *Director {
+	return &Director{imageChannel: imageChannel, inputChannel: inputChannel}
 }
 
 func (d *Director) SetView(view View) {
@@ -67,5 +66,5 @@ func (d *Director) PlayGame(path string) {
 	if err != nil {
 		log.Fatalln(err)
 	}
-	d.SetView(NewGameView(d, console, path, hash, d.imageChannel))
+	d.SetView(NewGameView(d, console, path, hash, d.imageChannel, d.inputChannel))
 }
