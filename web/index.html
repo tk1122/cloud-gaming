@@ -70,7 +70,6 @@
         offerToReceiveAudio: true
     }).then(d => pc.setLocalDescription(d))
 
-    const fps = 100
     const dataChannelOptions = {
         ordered: false, // do not guarantee order
         maxPacketLifeTime: 3000, // in milliseconds
@@ -99,14 +98,12 @@
 
             if (inputChannel.readyState === "open") {
                 // AFK
-                if (keyString !== "00000000") {
-                    console.log(keyString)
-                    inputChannel.send(keyString)
-                }
+                console.log(keyString)
+                inputChannel.send(keyString)
             } else {
                 clearInterval(sendInputInterval)
             }
-        }, 1000 / fps)
+        }, 10)
     }
     inputChannel.onclose = () => clearInterval(sendInputInterval)
 </script>
