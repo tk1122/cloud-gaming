@@ -22,7 +22,8 @@ func init() {
 }
 
 func startGame(path string, imageChannel chan *image.RGBA, inputChannel chan string) {
-	emulator.Run([]string{path}, imageChannel, inputChannel)
+	director := emulator.NewDirector(imageChannel, inputChannel)
+	director.Start([]string{path})
 }
 
 func main() {

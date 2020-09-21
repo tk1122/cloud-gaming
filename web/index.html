@@ -36,6 +36,7 @@
     }
     const startStreaming = () => {
         pc.setRemoteDescription(new RTCSessionDescription(JSON.parse(atob(remoteSessionDescription))))
+        console.log(JSON.parse(atob(remoteSessionDescription)).sdp)
     }
 
     const pc = new RTCPeerConnection({
@@ -45,10 +46,11 @@
             }
         ]
     })
-    let remoteSessionDescription = ""
     const inputChannel = pc.createDataChannel('keystrokes')
+    let remoteSessionDescription = ""
 
     pc.ontrack = function (event) {
+        console.log(event)
         const el = document.createElement(event.track.kind)
         el.srcObject = event.streams[0]
         el.autoplay = true
@@ -61,9 +63,13 @@
     pc.onicecandidate = event => {
         if (event.candidate === null) {
             const session = btoa(JSON.stringify(pc.localDescription));
+            console.log(pc.localDescription.sdp)
             postSession(session)
         }
     }
+
+    pc.addTransceiver("audio", {direction: "recvonly"})
+    pc.addTransceiver("video", {direction: "recvonly"})
 
     pc.createOffer({
         offerToReceiveVideo: true,
@@ -110,7 +116,7 @@
             } else {
                 clearInterval(sendInputInterval)
             }
-        }, 10)
+        }, 100)
     }
     inputChannel.onclose = () => clearInterval(sendInputInterval)
 </script>

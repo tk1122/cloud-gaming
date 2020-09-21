@@ -30,7 +30,6 @@ func NewGameView(director *Director, console *nes.Console, title, hash string, i
 
 func (view *GameView) listenToInputChannel() {
 	for keyString := range view.inputChannel {
-		println(keyString)
 		for id, c := range keyString {
 			if c == '1' {
 				view.keyPressed[id] = true

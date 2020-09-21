@@ -7,8 +7,8 @@ import (
 	"math/rand"
 	"time"
 
-	"github.com/pion/webrtc/v2"
-	"github.com/pion/webrtc/v2/pkg/media"
+	"github.com/pion/webrtc/v3"
+	"github.com/pion/webrtc/v3/pkg/media"
 	vpxEncoder "github.com/poi5305/go-yuv2webRTC/vpx-encoder"
 )
 
@@ -31,7 +31,6 @@ func NewWebRTC() *WebRTC {
 type WebRTC struct {
 	connection  *webrtc.PeerConnection
 	encoder     *vpxEncoder.VpxEncoder
-	vp8Track    *webrtc.Track
 	isConnected bool
 	// for yuvI420 image
 	ImageChannel chan []byte
@@ -58,7 +57,9 @@ func (w *WebRTC) StartClient(remoteSession string, width, height int) (string, e
 
 	// safari VP8 payload default is not 96. Maybe 100
 	m := webrtc.MediaEngine{}
-	m.RegisterCodec(webrtc.NewRTPVP8Codec(96, 90000))
+	if err := m.PopulateFromSDP(offer); err != nil {
+		panic(err)
+	}
 	api := webrtc.NewAPI(webrtc.WithMediaEngine(m))
 
 	encoder, err := vpxEncoder.NewVpxEncoder(width, height, 20, 1200, 5)
@@ -73,6 +74,7 @@ func (w *WebRTC) StartClient(remoteSession string, width, height int) (string, e
 	if err != nil {
 		return "", err
 	}
+
 	conn.OnDataChannel(func(channel *webrtc.DataChannel) {
 		channel.OnMessage(func(msg webrtc.DataChannelMessage) {
 			//println(string(msg.Data))
@@ -82,9 +84,9 @@ func (w *WebRTC) StartClient(remoteSession string, width, height int) (string, e
 
 	w.connection = conn
 
-	vp8Track, err := w.connection.NewTrack(96, rand.Uint32(), "video", "robotmon")
+	vp8Track, err := w.connection.NewTrack(getPayloadType(m, webrtc.RTPCodecTypeVideo, "VP8"), rand.Uint32(), "video", "robotmon")
 	if err != nil {
-		fmt.Println("Error: new xRobotmonScreen vp8 Track", err)
+		fmt.Println(err)
 		w.StopClient()
 		return "", err
 	}
@@ -93,18 +95,11 @@ func (w *WebRTC) StartClient(remoteSession string, width, height int) (string, e
 		w.StopClient()
 		return "", err
 	}
-	w.vp8Track = vp8Track
 
 	w.connection.OnICEConnectionStateChange(func(connectionState webrtc.ICEConnectionState) {
-		fmt.Printf("ICE Connection State has changed: %s\n", connectionState.String())
 		if connectionState == webrtc.ICEConnectionStateConnected {
 			w.isConnected = true
-			fmt.Println("ConnectionStateConnected")
 			w.startStreaming(vp8Track)
-		}
-		if connectionState == webrtc.ICEConnectionStateDisconnected || connectionState == webrtc.ICEConnectionStateFailed || connectionState == webrtc.ICEConnectionStateClosed {
-			fmt.Println("ConnectionStateDisconnected")
-			w.StopClient()
 		}
 	})
 
@@ -127,8 +122,14 @@ func (w *WebRTC) StartClient(remoteSession string, width, height int) (string, e
 		return "", err
 	}
 
+	gatherComplete := webrtc.GatheringCompletePromise(w.connection)
+
 	answer = *w.connection.LocalDescription()
 	localSession := Encode(answer)
+
+	// disable trickle ICE because we send only one full sdp
+	<-gatherComplete
+
 	fmt.Println("=== StartClient Done ===")
 	return localSession, nil
 }
@@ -167,10 +168,10 @@ func (w *WebRTC) startStreaming(vp8Track *webrtc.Track) {
 	go func() {
 		for i := 0; w.isConnected; i++ {
 			bs := <-w.encoder.Output
-			if i%10 == 0 {
-				fmt.Println("On Frame", len(bs), i)
-			}
-			w.vp8Track.WriteSample(media.Sample{Data: bs, Samples: 1})
+			//if i%10 == 0 {
+			//	fmt.Println("On Frame", len(bs), i)
+			//}
+			vp8Track.WriteSample(media.Sample{Data: bs, Samples: 1})
 		}
 	}()
 }
@@ -194,4 +195,13 @@ func Encode(obj interface{}) string {
 	}
 
 	return base64.StdEncoding.EncodeToString(b)
+}
+
+func getPayloadType(m webrtc.MediaEngine, codecType webrtc.RTPCodecType, codecName string) uint8 {
+	for _, codec := range m.GetCodecsByKind(codecType) {
+		if codec.Name == codecName {
+			return codec.PayloadType
+		}
+	}
+	panic(fmt.Sprintf("Remote peer does not support %s", codecName))
 }
