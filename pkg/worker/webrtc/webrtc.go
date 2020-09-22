@@ -125,11 +125,11 @@ func (w *WebRTC) StartClient(remoteSession string, width, height int) (string, e
 
 	gatherComplete := webrtc.GatheringCompletePromise(w.connection)
 
-	answer = *w.connection.LocalDescription()
-	localSession := Encode(answer)
-
 	// disable trickle ICE because we send only one full sdp
 	<-gatherComplete
+
+	answer = *w.connection.LocalDescription()
+	localSession := Encode(answer)
 
 	fmt.Println("=== StartClient Done ===")
 	return localSession, nil
