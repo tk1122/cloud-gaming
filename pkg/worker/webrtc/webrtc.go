@@ -97,6 +97,7 @@ func (w *WebRTC) StartClient(remoteSession string, width, height int) (string, e
 	}
 
 	w.connection.OnICEConnectionStateChange(func(connectionState webrtc.ICEConnectionState) {
+		println(connectionState)
 		if connectionState == webrtc.ICEConnectionStateConnected {
 			w.isConnected = true
 			w.startStreaming(vp8Track)
