@@ -1,18 +1,20 @@
-package main
+package worker
 
 import (
 	"encoding/json"
+	"fmt"
 	"github.com/gorilla/websocket"
 	"github.com/pion/webrtc/v3"
 	"log"
+	"math/rand"
 	"net/http"
 	"sync"
 	"time"
 )
 
-type WSPacketID string
-type WSPacket struct {
-	ID   WSPacketID `json:"ID"`
+type wsPacketID string
+type wsPacket struct {
+	ID   wsPacketID `json:"ID"`
 	Data string     `json:"Data"`
 }
 
@@ -34,13 +36,13 @@ const (
 )
 
 const (
-	Offer     WSPacketID = "offer"
+	Offer     wsPacketID = "offer"
 	Answer               = "answer"
 	Candidate            = "candidate"
 )
 
 var (
-	upgrader = websocket.Upgrader{EnableCompression: true}
+	upgrader = websocket.Upgrader{}
 	m        webrtc.MediaEngine
 	api      *webrtc.API
 )
@@ -57,10 +59,30 @@ func getWs(w http.ResponseWriter, r *http.Request) {
 	pc, err := api.NewPeerConnection(peerConnectionConfig)
 	must(err)
 
+	vp8Track, err := pc.NewTrack(
+		webrtc.DefaultPayloadTypeVP8,
+		rand.Uint32(),
+		fmt.Sprintf("video-%d", rand.Uint32()),
+		fmt.Sprintf("video-%d", rand.Uint32()),
+	)
+	must(err)
+	_, err = pc.AddTrack(vp8Track)
+	must(err)
+
 	pendingCandidates := make([]*webrtc.ICECandidate, 0)
 
 	go ping(ws)
 	go listenPeerMessages(ws, pc, pendingCandidates)
+
+	pc.OnICEConnectionStateChange(func(state webrtc.ICEConnectionState) {
+		log.Println("Ice connection state changed: ", state)
+		switch state {
+		case webrtc.ICEConnectionStateConnected:
+			startSession(vp8Track)
+		case webrtc.ICEConnectionStateDisconnected, webrtc.ICEConnectionStateClosed, webrtc.ICEConnectionStateFailed:
+			stopSession()
+		}
+	})
 
 	pc.OnICECandidate(func(c *webrtc.ICECandidate) {
 		if c == nil {
@@ -77,6 +99,11 @@ func getWs(w http.ResponseWriter, r *http.Request) {
 		}
 	})
 
+	pc.OnDataChannel(func(channel *webrtc.DataChannel) {
+		channel.OnMessage(func(msg webrtc.DataChannelMessage) {
+			sendInputToSession(string(msg.Data))
+		})
+	})
 }
 
 func ping(ws *websocket.Conn) {
@@ -107,7 +134,7 @@ func listenPeerMessages(ws *websocket.Conn, pc *webrtc.PeerConnection, pendingCa
 			break
 		}
 
-		req := &WSPacket{}
+		req := &wsPacket{}
 		must(json.Unmarshal(msg, req))
 
 		switch req.ID {
@@ -139,9 +166,9 @@ func listenPeerMessages(ws *websocket.Conn, pc *webrtc.PeerConnection, pendingCa
 	}
 }
 
-func sendMessage(ws *websocket.Conn, messageType int, id WSPacketID, data string) {
+func sendMessage(ws *websocket.Conn, messageType int, id wsPacketID, data string) {
 	var sendMux sync.Mutex
-	res := &WSPacket{
+	res := &wsPacket{
 		ID:   id,
 		Data: data,
 	}

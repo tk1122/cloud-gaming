@@ -1,4 +1,4 @@
-package main
+package worker
 
 import (
 	"crypto/rand"
@@ -12,12 +12,6 @@ import (
 	"os"
 	"time"
 )
-
-func must(err error) {
-	if err != nil {
-		panic(err)
-	}
-}
 
 func genPem() {
 	privateKey, err := rsa.GenerateKey(rand.Reader, 2048)
