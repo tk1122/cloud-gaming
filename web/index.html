@@ -1,4 +1,8 @@
 <html>
+<head>
+    <meta charset="utf-8">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/adapterjs/0.15.5/adapter.min.js"></script>
+</head>
 <style>
     textarea {
         width: 60%;
@@ -21,36 +25,66 @@
 
 <button id="playGame" onclick="startStreaming()" disabled> Play Mario</button>
 <script>
-    const postSession = session => {
-        const xhttp = new XMLHttpRequest();
-        xhttp.onload = function () {
-            if (this.status === 200) {
-                remoteSessionDescription = this.responseText;
-                document.getElementById('playGame').disabled = false;
-            }
-        };
-        xhttp.open("POST", "/session", true);
-        xhttp.setRequestHeader("Content-type", "text/plain");
-        xhttp.send(session);
-
-    }
-    const startStreaming = () => {
-        pc.setRemoteDescription(new RTCSessionDescription(JSON.parse(atob(remoteSessionDescription))))
-        console.log(JSON.parse(atob(remoteSessionDescription)).sdp)
-    }
-
+    const ws = new WebSocket("ws://localhost:8000/ws")
     const pc = new RTCPeerConnection({
         iceServers: [
             {
                 urls: 'stun:stun.l.google.com:19302'
             }
-        ]
+        ],
     })
-    const inputChannel = pc.createDataChannel('keystrokes')
-    let remoteSessionDescription = ""
+    const inputChannel = pc.createDataChannel('keystrokes', {
+            priority: "high",
+            ordered: false, // do not guarantee order
+            maxPacketLifeTime: 3000, // in milliseconds
+        }
+    )
+    pc.addTransceiver("audio", {direction: "recvonly"})
+    pc.addTransceiver("video", {direction: "recvonly"})
+
+    ws.onmessage = ev => {
+        const msg = JSON.parse(ev.data)
+        switch (msg.ID) {
+            case "answer":
+                pc.setRemoteDescription(new RTCSessionDescription({
+                    sdp: msg.Data,
+                    type: "answer"
+                }))
+                break;
+            case "candidate":
+                pc.addIceCandidate(JSON.parse(msg.Data))
+                break;
+        }
+    }
+
+    ws.onopen = () => {
+        pc.createOffer({
+            offerToReceiveVideo: true,
+            offerToReceiveAudio: true
+        }).then(d => pc.setLocalDescription(d)).then(() => {
+            ws.send(JSON.stringify({
+                ID: "offer",
+                Data: pc.localDescription.sdp
+            }))
+        })
+
+        pc.onicecandidate = ev => {
+            if (ev.candidate) {
+                ws.send(JSON.stringify({
+                    ID: "candidate",
+                    Data: ev.candidate.candidate
+                }))
+            }
+        }
+    }
+
+    ws.onclose = () => {
+        console.log("WEBSOCKET CLOSED!!!")
+        pc.onicecandidate = () => {
+        }
+    }
 
     pc.ontrack = function (event) {
-        console.log(event)
         const el = document.createElement(event.track.kind)
         el.srcObject = event.streams[0]
         el.autoplay = true
@@ -59,27 +93,7 @@
         document.getElementById('remoteVideos').appendChild(el)
     }
 
-    pc.oniceconnectionstatechange = e => console.log(pc.iceConnectionState)
-    pc.onicecandidate = event => {
-        if (event.candidate === null) {
-            const session = btoa(JSON.stringify(pc.localDescription));
-            console.log(pc.localDescription.sdp)
-            postSession(session)
-        }
-    }
 
-    pc.addTransceiver("audio", {direction: "recvonly"})
-    pc.addTransceiver("video", {direction: "recvonly"})
-
-    pc.createOffer({
-        offerToReceiveVideo: true,
-        offerToReceiveAudio: true
-    }).then(d => pc.setLocalDescription(d))
-
-    const dataChannelOptions = {
-        ordered: false, // do not guarantee order
-        maxPacketLifeTime: 3000, // in milliseconds
-    };
     const keysList = ["z", "x", "c", "v", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"]
     const keysState = new Array(keysList.length).fill(false)
     let unchangedPackets = 5;

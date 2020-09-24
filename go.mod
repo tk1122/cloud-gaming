@@ -7,6 +7,7 @@ require (
 	github.com/fogleman/nes v0.0.0-20200820131603-8c4b9cf54c35
 	github.com/gen2brain/shm v0.0.0-20200228170931-49f9650110c5 // indirect
 	github.com/gorilla/mux v1.8.0
+	github.com/gorilla/websocket v1.4.2
 	github.com/kbinani/screenshot v0.0.0-20191211154542-3a185f1ce18f // indirect
 	github.com/lxn/win v0.0.0-20191128105842-2da648fda5b4 // indirect
 	github.com/marten-seemann/qtls-go1-15 v0.1.1 // indirect
