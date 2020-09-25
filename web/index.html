@@ -25,7 +25,14 @@
 
 <button id="playGame" onclick="startStreaming()" disabled> Play Mario</button>
 <script>
-    const ws = new WebSocket("ws://localhost:8000/ws")
+    let wsUrl
+    const hostname = window.location.hostname
+    if (document.location.protocol === "https:") {
+        wsUrl = "wss://" + hostname + ":8000/ws"
+    } else {
+        wsUrl = "ws://" + hostname + ":8000/ws"
+    }
+    const ws = new WebSocket(wsUrl)
     const pc = new RTCPeerConnection({
         iceServers: [
             {
@@ -41,18 +48,17 @@
     )
     pc.addTransceiver("audio", {direction: "recvonly"})
     pc.addTransceiver("video", {direction: "recvonly"})
+    let remoteDescription = ""
 
     ws.onmessage = ev => {
         const msg = JSON.parse(ev.data)
-        switch (msg.ID) {
+        switch (msg.id) {
             case "answer":
-                pc.setRemoteDescription(new RTCSessionDescription({
-                    sdp: msg.Data,
-                    type: "answer"
-                }))
+                remoteDescription = msg.data
+                document.querySelector("#playGame").removeAttribute("disabled")
                 break;
             case "candidate":
-                pc.addIceCandidate(JSON.parse(msg.Data))
+                pc.addIceCandidate(JSON.parse(msg.data))
                 break;
         }
     }
@@ -63,16 +69,16 @@
             offerToReceiveAudio: true
         }).then(d => pc.setLocalDescription(d)).then(() => {
             ws.send(JSON.stringify({
-                ID: "offer",
-                Data: pc.localDescription.sdp
+                id: "offer",
+                data: pc.localDescription.sdp
             }))
         })
 
         pc.onicecandidate = ev => {
             if (ev.candidate) {
                 ws.send(JSON.stringify({
-                    ID: "candidate",
-                    Data: ev.candidate.candidate
+                    id: "candidate",
+                    data: ev.candidate.candidate
                 }))
             }
         }
@@ -91,6 +97,13 @@
         el.controls = true
 
         document.getElementById('remoteVideos').appendChild(el)
+    }
+
+    function startStreaming() {
+        pc.setRemoteDescription(new RTCSessionDescription({
+            sdp: remoteDescription,
+            type: "answer"
+        }))
     }
 
 

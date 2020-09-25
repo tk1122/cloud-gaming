@@ -6,12 +6,33 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/pem"
+	"github.com/gorilla/mux"
 	"html/template"
 	"math/big"
 	"net/http"
 	"os"
 	"time"
 )
+
+var (
+	Router *mux.Router
+)
+
+func must(err error) {
+	if err != nil {
+		panic(err)
+	}
+}
+
+func init() {
+	genPem()
+}
+
+func init() {
+	Router = mux.NewRouter()
+	Router.HandleFunc("/", getWeb).Methods("GET")
+	Router.HandleFunc("/ws", getWs).Methods("GET")
+}
 
 func genPem() {
 	privateKey, err := rsa.GenerateKey(rand.Reader, 2048)

@@ -16,7 +16,7 @@ type Encoder struct {
 	encoder      *vpxEncoder.VpxEncoder
 	isRunning    bool
 	ImageChannel chan []byte
-	InputChannel chan string
+	tracks       map[int]*webrtc.Track
 }
 
 func NewEncoder() *Encoder {
@@ -25,9 +25,9 @@ func NewEncoder() *Encoder {
 
 	return &Encoder{
 		encoder:      encoder,
+		tracks:       make(map[int]*webrtc.Track),
 		isRunning:    false,
-		ImageChannel: make(chan []byte, 2),
-		InputChannel: make(chan string, 2),
+		ImageChannel: make(chan []byte),
 	}
 }
 
@@ -40,7 +40,20 @@ func (e *Encoder) StopStreaming() {
 	e.encoder.Release()
 }
 
-func (e *Encoder) StartStreaming(vp8Track *webrtc.Track) {
+func (e *Encoder) AddTrack(t *webrtc.Track, playerId int) {
+	e.tracks[playerId] = t
+}
+
+func (e *Encoder) RemoveTrack(t *webrtc.Track, playerId int) {
+	delete(e.tracks, playerId)
+}
+
+func (e *Encoder) StartStreaming() {
+	if e.isRunning {
+		log.Println("Already start streaming")
+		return
+	}
+
 	log.Println("Start streaming")
 	e.isRunning = true
 
@@ -55,8 +68,13 @@ func (e *Encoder) StartStreaming(vp8Track *webrtc.Track) {
 
 	go func() {
 		for e.isRunning {
+			// encoded once, send to multiple webrtc tracks
 			bs := <-e.encoder.Output
-			_ = vp8Track.WriteSample(media.Sample{Data: bs, Samples: 1})
+			for _, t := range e.tracks {
+				go func(t *webrtc.Track) {
+					_ = t.WriteSample(media.Sample{Data: bs, Samples: 1})
+				}(t)
+			}
 		}
 	}()
 }

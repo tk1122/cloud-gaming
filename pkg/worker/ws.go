@@ -14,8 +14,8 @@ import (
 
 type wsPacketID string
 type wsPacket struct {
-	ID   wsPacketID `json:"ID"`
-	Data string     `json:"Data"`
+	ID   wsPacketID `json:"id"`
+	Data string     `json:"data"`
 }
 
 const (
@@ -51,6 +51,8 @@ func getWs(w http.ResponseWriter, r *http.Request) {
 	ws, err := upgrader.Upgrade(w, r, nil)
 	must(err)
 
+	ws.SetReadLimit(maxMessageSize)
+	_ = ws.SetReadDeadline(time.Now().Add(pongWait))
 	ws.SetPongHandler(func(appData string) error {
 		must(ws.SetReadDeadline(time.Now().Add(pongWait)))
 		return nil
@@ -69,6 +71,13 @@ func getWs(w http.ResponseWriter, r *http.Request) {
 	_, err = pc.AddTrack(vp8Track)
 	must(err)
 
+	// create both new client and new room
+	// TODO remove hard coded playerId and force create room
+	c := newClient(ws, pc, vp8Track, 1)
+	room := newRoom()
+	room.addClient(c)
+	c.room = room
+
 	pendingCandidates := make([]*webrtc.ICECandidate, 0)
 
 	go ping(ws)
@@ -78,9 +87,18 @@ func getWs(w http.ResponseWriter, r *http.Request) {
 		log.Println("Ice connection state changed: ", state)
 		switch state {
 		case webrtc.ICEConnectionStateConnected:
-			startSession(vp8Track)
-		case webrtc.ICEConnectionStateDisconnected, webrtc.ICEConnectionStateClosed, webrtc.ICEConnectionStateFailed:
-			stopSession()
+			c.joinGame()
+		case webrtc.ICEConnectionStateClosed, webrtc.ICEConnectionStateFailed:
+			c.leaveGame()
+
+			_ = ws.WriteControl(
+				websocket.CloseMessage,
+				websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""),
+				time.Now().Add(writeWait),
+			)
+			time.Sleep(closeGracePeriod)
+			_ = ws.Close()
+			log.Println("Websocket connection closed")
 		}
 	})
 
@@ -101,7 +119,7 @@ func getWs(w http.ResponseWriter, r *http.Request) {
 
 	pc.OnDataChannel(func(channel *webrtc.DataChannel) {
 		channel.OnMessage(func(msg webrtc.DataChannelMessage) {
-			sendInputToSession(string(msg.Data))
+			c.sendInputToGame(string(msg.Data))
 		})
 	})
 }
@@ -115,7 +133,7 @@ func ping(ws *websocket.Conn) {
 
 	for {
 		<-ticker.C
-		if err := ws.WriteControl(websocket.PingMessage, []byte{}, time.Time{}); err != nil {
+		if err := ws.WriteControl(websocket.PingMessage, []byte{}, time.Now().Add(writeWait)); err != nil {
 			log.Println("ping:", err)
 			break
 		}
@@ -127,7 +145,7 @@ func listenPeerMessages(ws *websocket.Conn, pc *webrtc.PeerConnection, pendingCa
 		_ = ws.Close()
 	}()
 
-	// forever loop to listening incomming messages
+	// forever loop to listening incoming messages
 	for {
 		mt, msg, err := ws.ReadMessage()
 		if err != nil {
@@ -151,12 +169,12 @@ func listenPeerMessages(ws *websocket.Conn, pc *webrtc.PeerConnection, pendingCa
 			must(pc.SetLocalDescription(answer))
 
 			sendMessage(ws, mt, Answer, answer.SDP)
-			log.Println("Answer sended")
+			log.Println("Answer sent")
 
 			for _, c := range pendingCandidate {
 				sendMessage(ws, mt, Candidate, c.ToJSON().Candidate)
 			}
-			log.Println("All pending candidate sended")
+			log.Println("All pending candidate sent")
 		case Candidate:
 			log.Println("Received new ice candidate")
 			must(pc.AddICECandidate(webrtc.ICECandidateInit{
@@ -176,9 +194,16 @@ func sendMessage(ws *websocket.Conn, messageType int, id wsPacketID, data string
 	resMsg, err := json.Marshal(res)
 	must(err)
 
+	// to avoid concurrent write to one ws connection
 	sendMux.Lock()
 	defer sendMux.Unlock()
+
+	_ = ws.SetWriteDeadline(time.Now().Add(writeWait))
 	if err := ws.WriteMessage(messageType, resMsg); err != nil {
 		_ = ws.Close()
 	}
+}
+
+func closeConn(ws *websocket.Conn) {
+	_ = ws.Close()
 }
