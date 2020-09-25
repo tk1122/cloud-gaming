@@ -43,8 +43,6 @@ const (
 
 var (
 	upgrader = websocket.Upgrader{}
-	m        webrtc.MediaEngine
-	api      *webrtc.API
 )
 
 func getWs(w http.ResponseWriter, r *http.Request) {

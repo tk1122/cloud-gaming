@@ -30,7 +30,7 @@ func newRoom() *room {
 	r := &room{
 		clients:     make(map[int]*client),
 		encoder:     encoder.NewEncoder(),
-		imageChanel: make(chan *image.RGBA),
+		imageChanel: make(chan *image.RGBA, 5),
 		inputChanel: make(chan string),
 		isRunning:   false,
 	}

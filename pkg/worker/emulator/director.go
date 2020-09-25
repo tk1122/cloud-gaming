@@ -1,6 +1,7 @@
 package emulator
 
 import (
+	"github.com/tk1122/cloud-gaming/pkg/worker/encoder"
 	"image"
 	"log"
 	"time"
@@ -54,6 +55,7 @@ func (d *Director) Start(paths []string) {
 func (d *Director) Run() {
 	for {
 		d.Step()
+		time.Sleep(time.Second / encoder.FPS)
 	}
 }
 

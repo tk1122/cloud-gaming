@@ -7,11 +7,6 @@ import (
 	"log"
 )
 
-const (
-	width  = 256
-	height = 240
-)
-
 type Encoder struct {
 	encoder      *vpxEncoder.VpxEncoder
 	isRunning    bool
@@ -19,15 +14,21 @@ type Encoder struct {
 	tracks       map[int]*webrtc.Track
 }
 
+const (
+	FPS    = 60
+	WIDTH  = 256
+	HEIGHT = 240
+)
+
 func NewEncoder() *Encoder {
-	encoder, err := vpxEncoder.NewVpxEncoder(width, height, 20, 1200, 5)
+	encoder, err := vpxEncoder.NewVpxEncoder(WIDTH, HEIGHT, FPS, 1200, 5)
 	must(err)
 
 	return &Encoder{
 		encoder:      encoder,
 		tracks:       make(map[int]*webrtc.Track),
 		isRunning:    false,
-		ImageChannel: make(chan []byte),
+		ImageChannel: make(chan []byte, 5),
 	}
 }
 
