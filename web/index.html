@@ -23,10 +23,10 @@
     V to start <br/>
 </div>
 
-<button onclick="startSignaling(1, '')">Play as Player 1</button>
+<button onclick="startSignaling(1, '')" class="signaling">Play as Player 1</button>
 <br/>
-<label for="roomId">Room id: </label><input type="text" id="roomId">
-<button onclick="startSignaling2Player()">Play as Player 2</button>
+<label for="roomId" id="roomLabel">Room id: </label><input type="text" id="roomId" class="signaling">
+<button onclick="startSignaling2Player()" class="signaling">Play as Player 2</button>
 <br/>
 <button id="start" onclick="startStreaming()" disabled>Start game</button>
 <script>
@@ -59,6 +59,7 @@
             sdp: remoteDescription,
             type: "answer"
         }))
+        document.querySelector("#start").style.display = "none"
     }
 
     function startSignaling2Player() {
@@ -67,8 +68,6 @@
     }
 
     function startSignaling(playerId, roomId) {
-        console.log("start signaling: player", playerId, "room: ", roomId)
-
         const ws = new WebSocket(wsUrl)
 
         ws.onmessage = ev => {
@@ -77,7 +76,13 @@
                 case "answer":
                     remoteDescription = msg.data
                     document.querySelector("#start").removeAttribute("disabled")
-                    console.log("roomId: ", msg.room_id)
+                    const elems = document.querySelectorAll(".signaling")
+                    for (const e of elems) {
+                        e.style.display = "none"
+                    }
+                    const roomIdSpanElem = document.createElement("span")
+                    roomIdSpanElem.innerText = msg.room_id
+                    document.querySelector("#roomLabel").appendChild(roomIdSpanElem)
                     break;
                 case "candidate":
                     pc.addIceCandidate(JSON.parse(msg.data))

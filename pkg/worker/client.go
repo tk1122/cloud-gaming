@@ -5,6 +5,7 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/pion/webrtc/v3"
 	"log"
+	"strconv"
 	"time"
 )
 
@@ -40,6 +41,13 @@ func (client *client) leaveOrStopGame() {
 }
 
 func (client *client) sendInputToGame(input string) {
+
+	// TODO try another fancier way
+	if client.playerId == PlayerTwo {
+		playerOneKeysPlaceholder := "0000000000"
+		input = playerOneKeysPlaceholder + input
+	}
+
 	client.room.receiveInputMessage(input)
 }
 
@@ -49,7 +57,7 @@ func (client *client) setPlayerId(id playerId) {
 
 func (client *client) registerICEConnectionEvents(pendingCandidates []*webrtc.ICECandidate) {
 	client.peerConn.OnICEConnectionStateChange(func(state webrtc.ICEConnectionState) {
-		log.Println("ice connection state changed: ", state)
+		log.Println("ice connection state changed:", state)
 		switch state {
 		case webrtc.ICEConnectionStateConnected:
 			client.joinOrStartGame()
@@ -93,6 +101,7 @@ func (client *client) registerICEConnectionEvents(pendingCandidates []*webrtc.IC
 			if !client.room.isRunning {
 				return
 			}
+
 			client.sendInputToGame(string(msg.Data))
 		})
 	})
@@ -150,6 +159,8 @@ func (client *client) listenPeerMessages(pendingCandidate []*webrtc.ICECandidate
 				room.addClient(client)
 			}
 
+			log.SetPrefix("room id:" + room.id + " player:" + strconv.Itoa(int(client.playerId)) + " ")
+
 			err = client.peerConn.SetRemoteDescription(webrtc.SessionDescription{
 				SDP:  req.Data,
 				Type: webrtc.SDPTypeOffer,
@@ -176,11 +187,6 @@ func (client *client) listenPeerMessages(pendingCandidate []*webrtc.ICECandidate
 			log.Println("all pending candidate sent")
 		case Candidate:
 			log.Println("received new remote ice candidate")
-
-			//if room == nil || client.playerId == 0 {
-			//	log.Println("ignore remote ice candidates come before sdp offer")
-			//	break
-			//}
 
 			err = client.peerConn.AddICECandidate(webrtc.ICECandidateInit{
 				Candidate: req.Data,

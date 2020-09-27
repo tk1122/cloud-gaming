@@ -15,14 +15,14 @@ type GameView struct {
 	hash       string
 	record     bool
 	frames     []image.Image
-	keyPressed [8]bool
+	keyPressed [20]bool
 
 	imageChannel chan *image.RGBA
 	inputChannel chan string
 }
 
 func NewGameView(director *Director, console *nes.Console, title, hash string, imageChannel chan *image.RGBA, inputChannel chan string) View {
-	gameview := &GameView{director, console, title, hash, false, nil, [8]bool{false}, imageChannel, inputChannel}
+	gameview := &GameView{director, console, title, hash, false, nil, [20]bool{false}, imageChannel, inputChannel}
 	go gameview.listenToInputChannel()
 
 	return gameview
@@ -41,7 +41,11 @@ func (view *GameView) listenToInputChannel() {
 }
 
 func (view *GameView) updateControllers() {
-	view.console.Controller1.SetButtons(view.keyPressed)
+	var player1Keys, player2Keys [8]bool
+	copy(player1Keys[:], view.keyPressed[:8])
+	copy(player2Keys[:], view.keyPressed[10:18])
+	view.console.Controller1.SetButtons(player1Keys)
+	view.console.Controller2.SetButtons(player2Keys)
 }
 
 func (view *GameView) Enter() {
