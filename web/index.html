@@ -23,7 +23,12 @@
     V to start <br/>
 </div>
 
-<button id="playGame" onclick="startStreaming()" disabled> Play Mario</button>
+<button onclick="startSignaling(1, '')">Play as Player 1</button>
+<br/>
+<label for="roomId">Room id: </label><input type="text" id="roomId">
+<button onclick="startSignaling2Player()">Play as Player 2</button>
+<br/>
+<button id="start" onclick="startStreaming()" disabled>Start game</button>
 <script>
     let wsUrl
     const hostname = window.location.hostname
@@ -32,7 +37,6 @@
     } else {
         wsUrl = "ws://" + hostname + ":8000/ws"
     }
-    const ws = new WebSocket(wsUrl)
     const pc = new RTCPeerConnection({
         iceServers: [
             {
@@ -50,55 +54,6 @@
     pc.addTransceiver("video", {direction: "recvonly"})
     let remoteDescription = ""
 
-    ws.onmessage = ev => {
-        const msg = JSON.parse(ev.data)
-        switch (msg.id) {
-            case "answer":
-                remoteDescription = msg.data
-                document.querySelector("#playGame").removeAttribute("disabled")
-                break;
-            case "candidate":
-                pc.addIceCandidate(JSON.parse(msg.data))
-                break;
-        }
-    }
-
-    ws.onopen = () => {
-        pc.createOffer({
-            offerToReceiveVideo: true,
-            offerToReceiveAudio: true
-        }).then(d => pc.setLocalDescription(d)).then(() => {
-            ws.send(JSON.stringify({
-                id: "offer",
-                data: pc.localDescription.sdp
-            }))
-        })
-
-        pc.onicecandidate = ev => {
-            if (ev.candidate) {
-                ws.send(JSON.stringify({
-                    id: "candidate",
-                    data: ev.candidate.candidate
-                }))
-            }
-        }
-    }
-
-    ws.onclose = () => {
-        console.log("WEBSOCKET CLOSED!!!")
-        pc.onicecandidate = () => {
-        }
-    }
-
-    pc.ontrack = function (event) {
-        const el = document.createElement(event.track.kind)
-        el.srcObject = event.streams[0]
-        el.autoplay = true
-        el.controls = true
-
-        document.getElementById('remoteVideos').appendChild(el)
-    }
-
     function startStreaming() {
         pc.setRemoteDescription(new RTCSessionDescription({
             sdp: remoteDescription,
@@ -106,45 +61,108 @@
         }))
     }
 
-
-    const keysList = ["z", "x", "c", "v", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"]
-    const keysState = new Array(keysList.length).fill(false)
-    let unchangedPackets = 5;
-
-    const setKeyState = (id, state) => {
-        keysState[id] = state
-        unchangedPackets = 5;
+    function startSignaling2Player() {
+        const roomId = document.querySelector("#roomId").value.trim()
+        startSignaling(2, roomId)
     }
 
-    window.addEventListener("keydown", ev => {
-        if (keysList.includes(ev.key)) {
-            setKeyState(keysList.indexOf(ev.key), true)
-        }
-    })
+    function startSignaling(playerId, roomId) {
+        console.log("start signaling: player", playerId, "room: ", roomId)
 
-    window.addEventListener("keyup", ev => {
-        if (keysList.includes(ev.key)) {
-            setKeyState(keysList.indexOf(ev.key), false)
-        }
-    })
+        const ws = new WebSocket(wsUrl)
 
-    const sendInputInterval = inputChannel.onopen = () => {
-        setInterval(() => {
-            const keyString = keysState.reduce((acc, key) => {
-                acc += key ? "1" : "0"
-                return acc
-            }, "")
-
-            if (inputChannel.readyState === "open") {
-                if (unchangedPackets > 0) {
-                    inputChannel.send(keyString)
-                    unchangedPackets--;
-                }
-            } else {
-                clearInterval(sendInputInterval)
+        ws.onmessage = ev => {
+            const msg = JSON.parse(ev.data)
+            switch (msg.id) {
+                case "answer":
+                    remoteDescription = msg.data
+                    document.querySelector("#start").removeAttribute("disabled")
+                    console.log("roomId: ", msg.room_id)
+                    break;
+                case "candidate":
+                    pc.addIceCandidate(JSON.parse(msg.data))
+                    break;
             }
-        }, 10)
+        }
+
+        ws.onopen = () => {
+            pc.createOffer({
+                offerToReceiveVideo: true,
+                offerToReceiveAudio: true
+            }).then(d => pc.setLocalDescription(d)).then(() => {
+                ws.send(JSON.stringify({
+                    id: "offer",
+                    data: pc.localDescription.sdp,
+                    player_id: playerId,
+                    room_id: roomId
+                }))
+            })
+
+            pc.onicecandidate = ev => {
+                if (ev.candidate) {
+                    ws.send(JSON.stringify({
+                        id: "candidate",
+                        data: ev.candidate.candidate
+                    }))
+                }
+            }
+        }
+
+        ws.onclose = () => {
+            console.log("WEBSOCKET CLOSED!!!")
+            pc.onicecandidate = () => {
+            }
+        }
+
+        pc.ontrack = function (event) {
+            const el = document.createElement(event.track.kind)
+            el.srcObject = event.streams[0]
+            el.autoplay = true
+            el.controls = true
+
+            document.getElementById('remoteVideos').appendChild(el)
+        }
+
+        const keysList = ["z", "x", "c", "v", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"]
+        const keysState = new Array(keysList.length).fill(false)
+        let unchangedPackets = 5;
+
+        const setKeyState = (id, state) => {
+            keysState[id] = state
+            unchangedPackets = 5;
+        }
+
+        window.addEventListener("keydown", ev => {
+            if (keysList.includes(ev.key)) {
+                setKeyState(keysList.indexOf(ev.key), true)
+            }
+        })
+
+        window.addEventListener("keyup", ev => {
+            if (keysList.includes(ev.key)) {
+                setKeyState(keysList.indexOf(ev.key), false)
+            }
+        })
+
+        const sendInputInterval = inputChannel.onopen = () => {
+            setInterval(() => {
+                const keyString = keysState.reduce((acc, key) => {
+                    acc += key ? "1" : "0"
+                    return acc
+                }, "")
+
+                if (inputChannel.readyState === "open") {
+                    if (unchangedPackets > 0) {
+                        inputChannel.send(keyString)
+                        unchangedPackets--;
+                    }
+                } else {
+                    clearInterval(sendInputInterval)
+                }
+            }, 10)
+        }
+        inputChannel.onclose = () => clearInterval(sendInputInterval)
     }
-    inputChannel.onclose = () => clearInterval(sendInputInterval)
+
 </script>
 </html>

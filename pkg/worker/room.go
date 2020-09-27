@@ -12,6 +12,7 @@ import (
 )
 
 type room struct {
+	id          string
 	clients     map[int]*client
 	encoder     *encoder.Encoder
 	imageChanel chan *image.RGBA
@@ -36,6 +37,7 @@ func newRoom() *room {
 	}
 
 	roomId := generateRoomID()
+	r.id = roomId
 	rooms[roomId] = r
 
 	return r
@@ -46,8 +48,9 @@ func (r *room) addClient(c *client) {
 	mux.Lock()
 	defer mux.Unlock()
 
-	r.clients[c.playerId] = c
-	r.encoder.AddTrack(c.track, c.playerId)
+	r.clients[int(c.playerId)] = c
+	c.room = r
+	r.encoder.AddTrack(c.track, int(c.playerId))
 }
 
 func (r *room) removeClient(c *client) {
@@ -55,8 +58,9 @@ func (r *room) removeClient(c *client) {
 	mux.Lock()
 	defer mux.Unlock()
 
-	r.encoder.RemoveTrack(c.track, c.playerId)
-	delete(r.clients, c.playerId)
+	r.encoder.RemoveTrack(c.track, int(c.playerId))
+	c.room = nil
+	delete(r.clients, int(c.playerId))
 }
 
 // TODO still send input in 1-player style
@@ -69,8 +73,8 @@ func (r *room) joinOrStartGame() {
 		log.Println("Start new game")
 		r.isRunning = true
 
-		go startGame("games/supermariobros.rom", r.imageChanel, r.inputChanel)
-		go screenshotLoop(r.encoder, r.imageChanel)
+		go r.startGame("games/contra.rom")
+		go r.screenshotLoop()
 		r.encoder.StartStreaming()
 	}
 }
@@ -80,16 +84,16 @@ func (r *room) leaveOrStopGame() {
 
 }
 
-func screenshotLoop(e *encoder.Encoder, imageChannel chan *image.RGBA) {
-	for i := range imageChannel {
-		if e.IsRunning() {
+func (r *room) screenshotLoop() {
+	for i := range r.imageChanel {
+		if r.encoder.IsRunning() {
 			yuv := screenshot.RgbaToYuv(i)
-			e.ImageChannel <- yuv
+			r.encoder.ImageChannel <- yuv
 		}
 	}
 }
 
-func startGame(path string, imageChannel chan *image.RGBA, inputChannel chan string) {
-	director := emulator.NewDirector(imageChannel, inputChannel)
+func (r *room) startGame(path string) {
+	director := emulator.NewDirector(r.imageChanel, r.inputChanel)
 	director.Start([]string{path})
 }
