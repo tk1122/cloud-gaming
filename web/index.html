@@ -28,6 +28,7 @@
 <label for="roomId" id="roomLabel">Room id: </label><input type="text" id="roomId" class="signaling">
 <button onclick="startSignaling2Player()" class="signaling">Play as Player 2</button>
 <br/>
+<div id="playerId"></div>
 <button id="start" onclick="startStreaming()" disabled>Start game</button>
 <script>
     let wsUrl
@@ -53,6 +54,7 @@
     pc.addTransceiver("audio", {direction: "recvonly"})
     pc.addTransceiver("video", {direction: "recvonly"})
     let remoteDescription = ""
+    let playerId
 
     function startStreaming() {
         pc.setRemoteDescription(new RTCSessionDescription({
@@ -60,6 +62,7 @@
             type: "answer"
         }))
         document.querySelector("#start").style.display = "none"
+        document.querySelector("#playerId").innerText = "You are " + (playerId === 1 ? "player 1" : "player 2")
     }
 
     function startSignaling2Player() {
@@ -67,7 +70,9 @@
         startSignaling(2, roomId)
     }
 
-    function startSignaling(playerId, roomId) {
+    function startSignaling(player, roomId) {
+        playerId = player
+
         const ws = new WebSocket(wsUrl)
 
         ws.onmessage = ev => {
@@ -98,7 +103,7 @@
                 ws.send(JSON.stringify({
                     id: "offer",
                     data: pc.localDescription.sdp,
-                    player_id: playerId,
+                    player_id: player,
                     room_id: roomId
                 }))
             })

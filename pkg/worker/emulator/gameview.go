@@ -6,23 +6,24 @@ import (
 	"github.com/fogleman/nes/nes"
 )
 
-const padding = 0
-
 type GameView struct {
-	director   *Director
-	console    *nes.Console
-	title      string
-	hash       string
-	record     bool
-	frames     []image.Image
-	keyPressed [20]bool
-
+	director     *Director
+	console      *nes.Console
+	hash         string
+	keyPressed   [20]bool
 	imageChannel chan *image.RGBA
 	inputChannel chan string
 }
 
-func NewGameView(director *Director, console *nes.Console, title, hash string, imageChannel chan *image.RGBA, inputChannel chan string) View {
-	gameview := &GameView{director, console, title, hash, false, nil, [20]bool{false}, imageChannel, inputChannel}
+func NewGameView(director *Director, console *nes.Console, hash string, imageChannel chan *image.RGBA, inputChannel chan string) View {
+	gameview := &GameView{
+		console:      console,
+		director:     director,
+		hash:         hash,
+		inputChannel: inputChannel,
+		imageChannel: imageChannel,
+		keyPressed:   [20]bool{false},
+	}
 	go gameview.listenToInputChannel()
 
 	return gameview
@@ -82,7 +83,4 @@ func (view *GameView) Update(t, dt float64) {
 	view.updateControllers()
 	console.StepSeconds(dt)
 	view.imageChannel <- console.Buffer()
-	if view.record {
-		view.frames = append(view.frames, copyImage(console.Buffer()))
-	}
 }

@@ -1,6 +1,7 @@
 package emulator
 
 import (
+	"context"
 	"github.com/tk1122/cloud-gaming/pkg/worker/encoder"
 	"image"
 	"log"
@@ -16,15 +17,15 @@ type View interface {
 }
 
 type Director struct {
+	ctx          context.Context
 	view         View
-	menuView     View
 	timestamp    float64
 	imageChannel chan *image.RGBA
 	inputChannel chan string
 }
 
-func NewDirector(imageChannel chan *image.RGBA, inputChannel chan string) *Director {
-	return &Director{imageChannel: imageChannel, inputChannel: inputChannel}
+func NewDirector(ctx context.Context, imageChannel chan *image.RGBA, inputChannel chan string) *Director {
+	return &Director{ctx: ctx, imageChannel: imageChannel, inputChannel: inputChannel}
 }
 
 func (d *Director) SetView(view View) {
@@ -53,10 +54,21 @@ func (d *Director) Start(paths []string) {
 }
 
 func (d *Director) Run() {
-	for {
-		d.Step()
-		time.Sleep(time.Second / encoder.FPS)
+	stepTicker := time.NewTicker(time.Second / encoder.FPS)
+
+loop:
+	for range stepTicker.C {
+		select {
+		case <-d.ctx.Done():
+			d.SetView(nil)
+			break loop
+		default:
+			d.Step()
+		}
 	}
+	// game emulator is running in our app process so there is no kill signal needed
+	stepTicker.Stop()
+	log.Println("Director stopped")
 }
 
 func (d *Director) PlayGame(path string) {
@@ -68,5 +80,5 @@ func (d *Director) PlayGame(path string) {
 	if err != nil {
 		log.Fatalln(err)
 	}
-	d.SetView(NewGameView(d, console, path, hash, d.imageChannel, d.inputChannel))
+	d.SetView(NewGameView(d, console, hash, d.imageChannel, d.inputChannel))
 }

@@ -1,6 +1,7 @@
 package worker
 
 import (
+	"context"
 	"github.com/poi5305/go-yuv2webRTC/screenshot"
 	"github.com/tk1122/cloud-gaming/pkg/worker/emulator"
 	"github.com/tk1122/cloud-gaming/pkg/worker/encoder"
@@ -12,12 +13,14 @@ import (
 )
 
 type room struct {
-	id          string
-	clients     map[int]*client
-	encoder     *encoder.Encoder
-	imageChanel chan *image.RGBA
-	inputChanel chan string
-	isRunning   bool
+	id             string
+	clients        map[int]*client
+	encoder        *encoder.Encoder
+	director       *emulator.Director
+	cancelDirector context.CancelFunc
+	imageChanel    chan *image.RGBA
+	inputChanel    chan string
+	isRunning      bool
 }
 
 var rooms = make(map[string]*room)
@@ -69,19 +72,34 @@ func (r *room) receiveInputMessage(input string) {
 }
 
 func (r *room) joinOrStartGame() {
+	log.Println("Player join game")
 	if !r.isRunning {
 		log.Println("Start new game")
 		r.isRunning = true
 
-		go r.startGame("games/contra.rom")
+		ctx, ctxCancle := context.WithCancel(context.Background())
+		r.cancelDirector = ctxCancle
+
+		go r.startGame(ctx, "games/contra.rom")
 		go r.screenshotLoop()
 		r.encoder.StartStreaming()
 	}
 }
 
-// TODO implement
-func (r *room) leaveOrStopGame() {
+func (r *room) leaveOrStopGame(c *client) {
+	log.Println("Player leave game")
+	r.removeClient(c)
 
+	if len(r.clients) == 0 {
+		r.isRunning = false
+		r.cancelDirector()
+
+		// be aware: close room input and image channel before canceling game director
+		// cause a write to closed channel panic
+		close(r.inputChanel)
+		close(r.imageChanel)
+		log.Println("Game stopped")
+	}
 }
 
 func (r *room) screenshotLoop() {
@@ -93,7 +111,7 @@ func (r *room) screenshotLoop() {
 	}
 }
 
-func (r *room) startGame(path string) {
-	director := emulator.NewDirector(r.imageChanel, r.inputChanel)
-	director.Start([]string{path})
+func (r *room) startGame(ctx context.Context, path string) {
+	r.director = emulator.NewDirector(ctx, r.imageChanel, r.inputChanel)
+	r.director.Start([]string{path})
 }

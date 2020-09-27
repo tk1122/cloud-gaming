@@ -5,7 +5,6 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/pion/webrtc/v3"
 	"log"
-	"strconv"
 	"time"
 )
 
@@ -37,7 +36,7 @@ func (client *client) joinOrStartGame() {
 }
 
 func (client *client) leaveOrStopGame() {
-	client.room.leaveOrStopGame()
+	client.room.leaveOrStopGame(client)
 }
 
 func (client *client) sendInputToGame(input string) {
@@ -62,7 +61,6 @@ func (client *client) registerICEConnectionEvents(pendingCandidates []*webrtc.IC
 		case webrtc.ICEConnectionStateConnected:
 			client.joinOrStartGame()
 		case webrtc.ICEConnectionStateClosed:
-			client.room.removeClient(client)
 			client.leaveOrStopGame()
 		case webrtc.ICEConnectionStateFailed:
 			_ = client.wsConn.WriteControl(
@@ -158,8 +156,6 @@ func (client *client) listenPeerMessages(pendingCandidate []*webrtc.ICECandidate
 				client.setPlayerId(PlayerTwo)
 				room.addClient(client)
 			}
-
-			log.SetPrefix("room id:" + room.id + " player:" + strconv.Itoa(int(client.playerId)) + " ")
 
 			err = client.peerConn.SetRemoteDescription(webrtc.SessionDescription{
 				SDP:  req.Data,
