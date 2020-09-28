@@ -91,7 +91,7 @@ func (r *room) leaveOrStopGame(c *client) {
 	log.Println("Player leave game")
 	r.removeClient(c)
 
-	if len(r.clients) == 0 {
+	if len(r.clients) == 0 && r.isRunning {
 		r.isRunning = false
 		r.cancelDirector()
 		r.encoder.StopStreaming()

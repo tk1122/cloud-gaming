@@ -38,6 +38,7 @@
     } else {
         wsUrl = "ws://" + hostname + ":8000/ws"
     }
+    console.log(wsUrl)
     const pc = new RTCPeerConnection({
         iceServers: [
             {
@@ -122,6 +123,10 @@
             console.log("WEBSOCKET CLOSED!!!")
             pc.onicecandidate = () => {
             }
+        }
+
+        ws.onerror = ev => {
+            console.log(ev)
         }
 
         pc.ontrack = function (event) {

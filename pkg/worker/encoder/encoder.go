@@ -39,7 +39,7 @@ func (e *Encoder) IsRunning() bool {
 func (e *Encoder) StopStreaming() {
 	e.isRunning = false
 	close(e.ImageChannel)
-	close(e.encoder.Output)
+	//close(e.encoder.Output)
 }
 
 func (e *Encoder) AddTrack(t *webrtc.Track, playerId int) {

@@ -32,11 +32,15 @@ func newClient(wsConn *websocket.Conn, peerConn *webrtc.PeerConnection, track *w
 }
 
 func (client *client) joinOrStartGame() {
-	client.room.joinOrStartGame()
+	if client.room != nil {
+		client.room.joinOrStartGame()
+	}
 }
 
 func (client *client) leaveOrStopGame() {
-	client.room.leaveOrStopGame(client)
+	if client.room != nil {
+		client.room.leaveOrStopGame(client)
+	}
 }
 
 func (client *client) sendInputToGame(input string) {
@@ -122,6 +126,7 @@ func (client *client) listenPeerMessages(pendingCandidate []*webrtc.ICECandidate
 	for {
 		mt, msg, err := client.wsConn.ReadMessage()
 		if err != nil {
+			log.Println("cannot read ws message:", err)
 			break
 		}
 
@@ -192,6 +197,7 @@ func (client *client) listenPeerMessages(pendingCandidate []*webrtc.ICECandidate
 				break
 			}
 		default:
+			log.Println("unrecognized ws message id")
 			break
 		}
 	}
