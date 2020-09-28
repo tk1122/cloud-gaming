@@ -28,6 +28,7 @@ func NewDirector(ctx context.Context, imageChannel chan *image.RGBA, inputChanne
 	return &Director{ctx: ctx, imageChannel: imageChannel, inputChannel: inputChannel}
 }
 
+// SetView nil do saving stuff
 func (d *Director) SetView(view View) {
 	if d.view != nil {
 		d.view.Exit()
@@ -39,6 +40,7 @@ func (d *Director) SetView(view View) {
 	d.timestamp = float64(time.Now().Nanosecond()) / float64(time.Second)
 }
 
+// Step stop being called means the game emulator stops
 func (d *Director) Step() {
 	timestamp := float64(time.Now().Nanosecond()) / float64(time.Second)
 	dt := timestamp - d.timestamp
@@ -60,13 +62,18 @@ loop:
 	for range stepTicker.C {
 		select {
 		case <-d.ctx.Done():
-			d.SetView(nil)
 			break loop
 		default:
 			d.Step()
 		}
 	}
-	// game emulator is running in our app process so there is no kill signal needed
+	// closing room's image channel and input channel here
+	// gurantee there is no write to closed channel from console Buffer
+	// if we do closing in game room after invoking context cancel func
+	// that cause write to closed channel panic due to the ticker
+	close(d.imageChannel)
+	close(d.inputChannel)
+	d.SetView(nil)
 	stepTicker.Stop()
 	log.Println("Director stopped")
 }

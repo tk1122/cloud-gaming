@@ -66,24 +66,25 @@ func (r *room) removeClient(c *client) {
 	delete(r.clients, int(c.playerId))
 }
 
-// TODO still send input in 1-player style
 func (r *room) receiveInputMessage(input string) {
 	r.inputChanel <- input
 }
 
 func (r *room) joinOrStartGame() {
 	log.Println("Player join game")
-	if !r.isRunning {
-		log.Println("Start new game")
-		r.isRunning = true
-
-		ctx, ctxCancle := context.WithCancel(context.Background())
-		r.cancelDirector = ctxCancle
-
-		go r.startGame(ctx, "games/contra.rom")
-		go r.screenshotLoop()
-		r.encoder.StartStreaming()
+	if r.isRunning {
+		log.Println("Game is already running")
+		return
 	}
+	log.Println("Start new game")
+	r.isRunning = true
+
+	ctx, ctxCancle := context.WithCancel(context.Background())
+	r.cancelDirector = ctxCancle
+
+	go r.startGame(ctx, "games/contra.rom")
+	go r.screenshotLoop()
+	r.encoder.StartStreaming()
 }
 
 func (r *room) leaveOrStopGame(c *client) {
@@ -93,11 +94,9 @@ func (r *room) leaveOrStopGame(c *client) {
 	if len(r.clients) == 0 {
 		r.isRunning = false
 		r.cancelDirector()
+		r.encoder.StopStreaming()
 
-		// be aware: close room input and image channel before canceling game director
-		// cause a write to closed channel panic
-		close(r.inputChanel)
-		close(r.imageChanel)
+		delete(rooms, r.id)
 		log.Println("Game stopped")
 	}
 }

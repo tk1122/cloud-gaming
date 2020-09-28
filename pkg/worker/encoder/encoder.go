@@ -38,7 +38,8 @@ func (e *Encoder) IsRunning() bool {
 
 func (e *Encoder) StopStreaming() {
 	e.isRunning = false
-	e.encoder.Release()
+	close(e.ImageChannel)
+	close(e.encoder.Output)
 }
 
 func (e *Encoder) AddTrack(t *webrtc.Track, playerId int) {
@@ -60,21 +61,23 @@ func (e *Encoder) StartStreaming() {
 
 	go func() {
 		for e.isRunning {
-			yuv := <-e.ImageChannel
-			if len(e.encoder.Input) < cap(e.encoder.Input) {
-				e.encoder.Input <- yuv
+			for yuv := range e.ImageChannel {
+				if len(e.encoder.Input) < cap(e.encoder.Input) {
+					e.encoder.Input <- yuv
+				}
 			}
 		}
 	}()
 
 	go func() {
 		for e.isRunning {
-			// encoded once, send to multiple webrtc tracks
-			bs := <-e.encoder.Output
-			for _, t := range e.tracks {
-				go func(t *webrtc.Track) {
-					_ = t.WriteSample(media.Sample{Data: bs, Samples: 1})
-				}(t)
+			for bs := range e.encoder.Output {
+				// encoded once, send to multiple webrtc tracks
+				for _, t := range e.tracks {
+					go func(t *webrtc.Track) {
+						_ = t.WriteSample(media.Sample{Data: bs, Samples: 1})
+					}(t)
+				}
 			}
 		}
 	}()
