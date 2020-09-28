@@ -1,6 +1,7 @@
 package encoder
 
 import (
+	"context"
 	"github.com/pion/webrtc/v3"
 	"github.com/pion/webrtc/v3/pkg/media"
 	vpxEncoder "github.com/poi5305/go-yuv2webRTC/vpx-encoder"
@@ -8,10 +9,11 @@ import (
 )
 
 type Encoder struct {
-	encoder      *vpxEncoder.VpxEncoder
-	isRunning    bool
-	ImageChannel chan []byte
-	tracks       map[int]*webrtc.Track
+	encoder          *vpxEncoder.VpxEncoder
+	isRunning        bool
+	ImageChannel     chan []byte
+	tracks           map[int]*webrtc.Track
+	cancelOutputFunc context.CancelFunc
 }
 
 const (
@@ -39,7 +41,7 @@ func (e *Encoder) IsRunning() bool {
 func (e *Encoder) StopStreaming() {
 	e.isRunning = false
 	close(e.ImageChannel)
-	//close(e.encoder.Output)
+	e.cancelOutputFunc()
 }
 
 func (e *Encoder) AddTrack(t *webrtc.Track, playerId int) {
@@ -58,6 +60,8 @@ func (e *Encoder) StartStreaming() {
 
 	log.Println("Start streaming")
 	e.isRunning = true
+	ctx, cancelFunc := context.WithCancel(context.Background())
+	e.cancelOutputFunc = cancelFunc
 
 	go func() {
 		for e.isRunning {
@@ -69,18 +73,24 @@ func (e *Encoder) StartStreaming() {
 		}
 	}()
 
-	go func() {
+	go func(ctx context.Context) {
+	loop:
 		for e.isRunning {
-			for bs := range e.encoder.Output {
-				// encoded once, send to multiple webrtc tracks
-				for _, t := range e.tracks {
-					go func(t *webrtc.Track) {
-						_ = t.WriteSample(media.Sample{Data: bs, Samples: 1})
-					}(t)
+			select {
+			case <-ctx.Done():
+				break loop
+			case bs, ok := <-e.encoder.Output:
+				if ok {
+					// encoded once, send to multiple webrtc tracks
+					for _, t := range e.tracks {
+						go func(t *webrtc.Track) {
+							_ = t.WriteSample(media.Sample{Data: bs, Samples: 1})
+						}(t)
+					}
 				}
 			}
 		}
-	}()
+	}(ctx)
 }
 
 func must(err error) {
