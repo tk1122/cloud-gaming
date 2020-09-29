@@ -1,14 +1,12 @@
 package worker
 
 import (
-	"encoding/json"
 	"fmt"
 	"github.com/gorilla/websocket"
 	"github.com/pion/webrtc/v3"
 	"log"
 	"math/rand"
 	"net/http"
-	"sync"
 	"time"
 )
 
@@ -98,23 +96,6 @@ func ping(ws *websocket.Conn) {
 			log.Println("ping:", err)
 			break
 		}
-	}
-}
-
-func sendMessage(ws *websocket.Conn, messageType int, packet *wsPacket) {
-	var sendMux sync.Mutex
-
-	resMsg, err := json.Marshal(packet)
-	must(err)
-
-	// to avoid concurrent write to one ws connection
-	sendMux.Lock()
-	defer sendMux.Unlock()
-
-	_ = ws.SetWriteDeadline(time.Now().Add(writeWait))
-	if err := ws.WriteMessage(messageType, resMsg); err != nil {
-		log.Println("cannot write message: ", err)
-		_ = ws.Close()
 	}
 }
 

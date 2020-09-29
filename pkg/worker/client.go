@@ -5,15 +5,17 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/pion/webrtc/v3"
 	"log"
+	"sync"
 	"time"
 )
 
 type client struct {
-	wsConn   *websocket.Conn
-	peerConn *webrtc.PeerConnection
-	track    *webrtc.Track
-	playerId playerId
-	room     *room
+	wsWriteMux sync.Mutex
+	wsConn     *websocket.Conn
+	peerConn   *webrtc.PeerConnection
+	track      *webrtc.Track
+	playerId   playerId
+	room       *room
 }
 
 type playerId int
@@ -90,7 +92,7 @@ func (client *client) registerICEConnectionEvents(pendingCandidates []*webrtc.IC
 
 			// candidate ws message sent to browser does not contain roomId and playerId
 			packet := newWsPacket(Candidate, string(iceCandidate), "", 0)
-			sendMessage(client.wsConn, websocket.TextMessage, packet)
+			client.sendMessage(websocket.TextMessage, packet)
 		} else {
 			log.Println("get new ice candidate but remote description yet set")
 			pendingCandidates = append(pendingCandidates, c)
@@ -177,13 +179,13 @@ func (client *client) listenPeerMessages(pendingCandidate []*webrtc.ICECandidate
 			must(client.peerConn.SetLocalDescription(answer))
 
 			packet := newWsPacket(Answer, answer.SDP, room.id, client.playerId)
-			sendMessage(client.wsConn, mt, packet)
+			client.sendMessage(mt, packet)
 			log.Println("answer sent")
 
 			for _, cdd := range pendingCandidate {
 				// candidate ws message sent to browser does not contain roomId and playerId
 				packet := newWsPacket(Candidate, cdd.ToJSON().Candidate, "", 0)
-				sendMessage(client.wsConn, mt, packet)
+				client.sendMessage(mt, packet)
 			}
 			log.Println("all pending candidate sent")
 		case Candidate:
@@ -200,5 +202,20 @@ func (client *client) listenPeerMessages(pendingCandidate []*webrtc.ICECandidate
 			log.Println("unrecognized ws message id")
 			break
 		}
+	}
+}
+
+func (client *client) sendMessage(messageType int, packet *wsPacket) {
+	resMsg, err := json.Marshal(packet)
+	must(err)
+
+	// to avoid concurrent write to one ws connection
+	client.wsWriteMux.Lock()
+	defer client.wsWriteMux.Unlock()
+
+	_ = client.wsConn.SetWriteDeadline(time.Now().Add(writeWait))
+	if err := client.wsConn.WriteMessage(messageType, resMsg); err != nil {
+		log.Println("cannot write message: ", err)
+		_ = client.wsConn.Close()
 	}
 }
