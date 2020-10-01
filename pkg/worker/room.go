@@ -13,8 +13,9 @@ import (
 )
 
 type room struct {
-	id             string
+	clientsMux     sync.Mutex
 	clients        map[int]*client
+	id             string
 	encoder        *encoder.Encoder
 	director       *emulator.Director
 	cancelDirector context.CancelFunc
@@ -47,9 +48,8 @@ func newRoom() *room {
 }
 
 func (r *room) addClient(c *client) {
-	var mux sync.Mutex
-	mux.Lock()
-	defer mux.Unlock()
+	r.clientsMux.Lock()
+	defer r.clientsMux.Unlock()
 
 	r.clients[int(c.playerId)] = c
 	c.room = r
@@ -57,9 +57,8 @@ func (r *room) addClient(c *client) {
 }
 
 func (r *room) removeClient(c *client) {
-	var mux sync.Mutex
-	mux.Lock()
-	defer mux.Unlock()
+	r.clientsMux.Lock()
+	defer r.clientsMux.Unlock()
 
 	r.encoder.RemoveTrack(c.track, int(c.playerId))
 	c.room = nil
