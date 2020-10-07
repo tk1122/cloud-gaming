@@ -39,7 +39,7 @@ pipeline {
             }
             steps {
                 container('helm') {
-                    sh "helm upgrade --install --force cloud-gaming ./k8s/cloud-gaming"
+                    sh "helm upgrade --install cloud-gaming ./k8s/cloud-gaming"
                 }
             }
         }
