@@ -3,6 +3,7 @@ domain: localhost
 replicaCount: 1
 
 image:
+  containerPort: 8000
   repository: slark1122/cloud-gaming
   tag: latest
   pullPolicy: Always

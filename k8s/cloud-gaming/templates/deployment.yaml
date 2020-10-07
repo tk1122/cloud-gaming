@@ -3,6 +3,7 @@ kind: Deployment
 metadata:
   name: {{.Values.name}}-deployment
 spec:
+  replicas: {{.Values.replicaCount}}
   selector:
     matchLabels:
       app: {{.Values.name}}
@@ -15,3 +16,5 @@ spec:
         - name: {{.Values.name}}-container
           image: {{.Values.image.repository}}:{{.Values.image.tag}}
           imagePullPolicy: {{.Values.image.pullPolicy}}
+          ports:
+            - containerPort: {{.Values.image.containerPort}}
