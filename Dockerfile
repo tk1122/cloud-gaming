@@ -8,4 +8,5 @@ COPY ./go.sum .
 RUN go mod download
 COPY . .
 RUN go build -o main cmd/worker/*
+EXPOSE 8000
 CMD ["./main"]
