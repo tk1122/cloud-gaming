@@ -1,7 +1,7 @@
 {{- if .Values.ingress.enabled -}}
   {{- $name := .Values.name -}}
   {{- $hostname := printf "%s.%s" .Values.name .Values.domain -}}
-apiVersion: networking.k8s.io/v1
+apiVersion: extensions/v1beta1
 kind: Ingress
 metadata:
   name: {{$name}}-ingress
@@ -9,29 +9,12 @@ metadata:
   annotations:
   {{- .annotations | toYaml | nindent 4}}
 spec:
-  {{- if .tls}}
-  tls:
-    {{- range .tls}}
-    - hosts:
-        {{- range .hosts }}
-        - {{ $hostname | quote}}
-      {{- end }}
-      secretName: {{ .secretName }}
-  {{- end }}
-  {{- end }}
   rules:
-    {{- range .hosts}}
     - host: {{ $hostname | quote }}
       http:
         paths:
-          {{- range .paths}}
-          - path: {{ . }}
-            backend:
-              service:
-                name: {{ $name }}-service
-                port:
-                  name: http
-  {{- end}}
-  {{- end}}
+          - backend:
+              serviceName: {{$name}}-service
+              servicePort: http
   {{- end }}
   {{- end }}
