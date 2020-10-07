@@ -1,10 +1,7 @@
 version: "3.8"
 services:
   app:
-    image: tk1122/cloud-gaming
-    build:
-      dockerfile: ./docker/Dockerfile
-      context: .
+    image: slark1122/cloud-gaming
     ports:
     - "8000:8000"
     restart: on-failure

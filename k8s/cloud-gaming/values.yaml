@@ -1,0 +1,23 @@
+name: cloud-gaming
+domain: localhost
+replicaCount: 1
+
+image:
+  repository: slark1122/cloud-gaming
+  tag: latest
+  pullPolicy: Always
+
+ingress:
+  enabled: true
+  annotations:
+    kubernetes.io/ingress.class: traefik
+  hosts:
+    - host:
+      paths:
+        - /
+  tls: []
+
+service:
+  type: ClusterIP
+  targetPort: 8080
+  port: 80
