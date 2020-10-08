@@ -1,5 +1,8 @@
 # Cloud-gaming 
 
+## Try it!
+**http://cloud-gaming.southeastasia.cloudapp.azure.com:8000**
+
 ## Intro
 **Cloud gaming proof of concept implemented in Golang using WebRTC**
 * Playing 2-player NES games on browser using emulator provided by https://github.com/fogleman/nes
