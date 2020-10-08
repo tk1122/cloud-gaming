@@ -33,14 +33,9 @@
     let wsUrl
     const hostname = window.location.hostname
     if (document.location.protocol === "https:") {
-        wsUrl = "wss://" + hostname
+        wsUrl = "wss://" + hostname + ":8000/ws"
     } else {
-        wsUrl = "ws://" + hostname
-    }
-    if (hostname === "localhost") {
-        wsUrl += ":8000/ws"
-    } else {
-        wsUrl += "/ws"
+        wsUrl = "ws://" + hostname + ":8000/ws"
     }
     console.log(wsUrl)
     const pc = new RTCPeerConnection({
