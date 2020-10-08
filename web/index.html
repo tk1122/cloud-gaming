@@ -29,7 +29,6 @@
 <button onclick="startSignaling2Player()" class="signaling">Play as Player 2</button>
 <br/>
 <div id="playerId"></div>
-<button id="start" onclick="startStreaming()" disabled>Start game</button>
 <script>
     let wsUrl
     const hostname = window.location.hostname
@@ -67,7 +66,6 @@
             sdp: remoteDescription,
             type: "answer"
         }))
-        document.querySelector("#start").style.display = "none"
         document.querySelector("#playerId").innerText = "You are " + (playerId === 1 ? "player 1" : "player 2")
     }
 
@@ -86,7 +84,6 @@
             switch (msg.id) {
                 case "answer":
                     remoteDescription = msg.data
-                    document.querySelector("#start").removeAttribute("disabled")
                     const elems = document.querySelectorAll(".signaling")
                     for (const e of elems) {
                         e.style.display = "none"
@@ -94,6 +91,8 @@
                     const roomIdSpanElem = document.createElement("span")
                     roomIdSpanElem.innerText = msg.room_id
                     document.querySelector("#roomLabel").appendChild(roomIdSpanElem)
+
+                    startStreaming()
                     break;
                 case "candidate":
                     pc.addIceCandidate(JSON.parse(msg.data))

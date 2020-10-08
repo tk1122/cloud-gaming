@@ -93,6 +93,7 @@ func (client *client) registerICEConnectionEvents(pendingCandidates []*webrtc.IC
 			// candidate ws message sent to browser does not contain roomId and playerId
 			packet := newWsPacket(Candidate, string(iceCandidate), "", 0)
 			client.sendMessage(websocket.TextMessage, packet)
+			log.Println("new ice candidate sent to client:", c)
 		} else {
 			log.Println("get new ice candidate but remote description yet set")
 			pendingCandidates = append(pendingCandidates, c)
@@ -168,6 +169,7 @@ func (client *client) listenPeerMessages(pendingCandidate []*webrtc.ICECandidate
 				SDP:  req.Data,
 				Type: webrtc.SDPTypeOffer,
 			})
+			log.Println("remote description set")
 
 			if err != nil {
 				log.Println("cannot set remote sdp: ", err)
@@ -177,6 +179,7 @@ func (client *client) listenPeerMessages(pendingCandidate []*webrtc.ICECandidate
 			answer, err := client.peerConn.CreateAnswer(nil)
 			must(err)
 			must(client.peerConn.SetLocalDescription(answer))
+			log.Println("local description set")
 
 			packet := newWsPacket(Answer, answer.SDP, room.id, client.playerId)
 			client.sendMessage(mt, packet)
@@ -186,10 +189,11 @@ func (client *client) listenPeerMessages(pendingCandidate []*webrtc.ICECandidate
 				// candidate ws message sent to browser does not contain roomId and playerId
 				packet := newWsPacket(Candidate, cdd.ToJSON().Candidate, "", 0)
 				client.sendMessage(mt, packet)
+				log.Println("new ice candidate sent to client:", cdd)
 			}
 			log.Println("all pending candidate sent")
 		case Candidate:
-			log.Println("received new remote ice candidate")
+			log.Println("received new remote ice candidate:", req.Data)
 
 			err = client.peerConn.AddICECandidate(webrtc.ICECandidateInit{
 				Candidate: req.Data,

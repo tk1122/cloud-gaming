@@ -1,7 +1,7 @@
 version: "3.8"
 services:
   app:
-    image: slark1122/cloud-gaming
+    image: slark1122/cloud-gaming:latest
     ports:
     - "8000:8000"
     restart: on-failure
