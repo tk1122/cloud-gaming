@@ -73,7 +73,8 @@ loop:
 	// that cause write to closed channel panic due to the ticker
 	close(d.imageChannel)
 	close(d.inputChannel)
-	d.SetView(nil)
+	// TODO enable/disable save game here
+	//d.SetView(nil)
 	stepTicker.Stop()
 	log.Println("Director stopped")
 }
