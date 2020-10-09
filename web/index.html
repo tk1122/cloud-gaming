@@ -165,11 +165,11 @@
 
         const keysList = ["z", "x", "c", "v", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"]
         const keysState = new Array(keysList.length).fill(false)
-        let unchangedPackets = 5;
+        let unchangedPackets = 1;
 
         const setKeyState = (id, state) => {
             keysState[id] = state
-            unchangedPackets = 5;
+            unchangedPackets = 1;
         }
 
         window.addEventListener("keydown", ev => {

@@ -1,19 +1,24 @@
 package emulator
 
 import (
-	"image"
-
 	"github.com/fogleman/nes/nes"
+	"image"
 )
 
 type GameView struct {
 	director     *Director
 	console      *nes.Console
 	hash         string
-	keyPressed   [20]bool
+	keyPressed   [playerKeyNums * 2]bool
 	imageChannel chan *image.RGBA
 	inputChannel chan string
 }
+
+const (
+	PlayerOneFirstBit = "0"
+	PlayerTwoFirstBit = "1"
+	playerKeyNums     = 8
+)
 
 func NewGameView(director *Director, console *nes.Console, hash string, imageChannel chan *image.RGBA, inputChannel chan string) View {
 	gameview := &GameView{
@@ -22,7 +27,7 @@ func NewGameView(director *Director, console *nes.Console, hash string, imageCha
 		hash:         hash,
 		inputChannel: inputChannel,
 		imageChannel: imageChannel,
-		keyPressed:   [20]bool{false},
+		keyPressed:   [playerKeyNums * 2]bool{false},
 	}
 	go gameview.listenToInputChannel()
 
@@ -31,20 +36,24 @@ func NewGameView(director *Director, console *nes.Console, hash string, imageCha
 
 func (view *GameView) listenToInputChannel() {
 	for keyString := range view.inputChannel {
-		for id, c := range keyString {
+		bitOffset := 0
+		if string(keyString[0]) == PlayerTwoFirstBit {
+			bitOffset = playerKeyNums
+		}
+		for id, c := range keyString[1:] {
 			if c == '1' {
-				view.keyPressed[id] = true
+				view.keyPressed[id+bitOffset] = true
 			} else {
-				view.keyPressed[id] = false
+				view.keyPressed[id+bitOffset] = false
 			}
 		}
 	}
 }
 
 func (view *GameView) updateControllers() {
-	var player1Keys, player2Keys [8]bool
-	copy(player1Keys[:], view.keyPressed[:8])
-	copy(player2Keys[:], view.keyPressed[10:18])
+	var player1Keys, player2Keys [playerKeyNums]bool
+	copy(player1Keys[:], view.keyPressed[:playerKeyNums])
+	copy(player2Keys[:], view.keyPressed[playerKeyNums:])
 	view.console.Controller1.SetButtons(player1Keys)
 	view.console.Controller2.SetButtons(player2Keys)
 }

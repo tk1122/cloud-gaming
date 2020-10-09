@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"github.com/gorilla/websocket"
 	"github.com/pion/webrtc/v3"
+	"github.com/tk1122/cloud-gaming/pkg/worker/emulator"
 	"log"
 	"os"
 	"sync"
@@ -48,13 +49,11 @@ func (client *client) leaveOrStopGame() {
 }
 
 func (client *client) sendInputToGame(input string) {
-
-	// TODO try another fancier way
-	if client.playerId == PlayerTwo {
-		playerOneKeysPlaceholder := "0000000000"
-		input = playerOneKeysPlaceholder + input
+	if client.playerId == PlayerOne {
+		input = emulator.PlayerOneFirstBit + input
+	} else {
+		input = emulator.PlayerTwoFirstBit + input
 	}
-
 	client.room.receiveInputMessage(input)
 }
 
