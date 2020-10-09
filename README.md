@@ -1,7 +1,7 @@
 # Cloud-gaming 
 
 ## Try it!
-**http://cloud-gaming.southeastasia.cloudapp.azure.com:8000**
+**http://cloud-gaming.southeastasia.cloudapp.azure.com**
 
 ## Intro
 **Cloud gaming proof of concept implemented in Golang using WebRTC**
