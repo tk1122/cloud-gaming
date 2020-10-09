@@ -69,7 +69,7 @@ func (r *room) receiveInputMessage(input string) {
 	r.inputChanel <- input
 }
 
-func (r *room) joinOrStartGame() {
+func (r *room) joinOrStartGame(gameId string) {
 	log.Println("Player join game")
 	if r.isRunning {
 		log.Println("Game is already running")
@@ -81,7 +81,7 @@ func (r *room) joinOrStartGame() {
 	ctx, ctxCancle := context.WithCancel(context.Background())
 	r.cancelDirector = ctxCancle
 
-	go r.startGame(ctx, "games/contra.rom")
+	go r.startGame(ctx, "games/"+gameId)
 	go r.screenshotLoop()
 	r.encoder.StartStreaming()
 }

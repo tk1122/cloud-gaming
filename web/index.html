@@ -4,11 +4,6 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/adapterjs/0.15.5/adapter.min.js"></script>
 </head>
 <style>
-    textarea {
-        width: 60%;
-        height: 50px;
-    }
-
     audio {
         display: none;
     }
@@ -22,8 +17,33 @@
     C to select <br/>
     V to start <br/>
 </div>
-
-<button onclick="startSignaling(1, '')" class="signaling">Play as Player 1</button>
+<br>
+<div>
+    <label for="gameId" id="gameIdLabel">Select game:</label>
+    <select name="gameId" id="gameId">
+        <option value="adventure-island-2.nes">Adventure Island 2</option>
+        <option value="battle-city.nes">Battle City</option>
+        <option value="circus-charlie.nes">Circus Charlie</option>
+        <option value="contra.nes">Contra</option>
+        <option value="contra-force.nes">Contra Force</option>
+        <option value="donkey-kong-3.nes">Donkey Kong 3</option>
+        <option value="donkey-kong-jr.nes">Donkey Kong Jr</option>
+        <option value="double-dragon-2.nes">Double Dragon 2</option>
+        <option value="excitebike.nes">Excitebike</option>
+        <option value="ice-climber.nes">Ice Climber</option>
+        <option value="jackal.nes">Jackal</option>
+        <option value="kungfu.nes">Kung Fu</option>
+        <option value="legend-of-kage.nes">Legend Of Kage</option>
+        <option value="lode-runner.nes">Lode Runner</option>
+        <option value="mario.nes">Super Mario</option>
+        <option value="mighty-final-fight.nes">Mighty Final Fight</option>
+        <option value="muscle.nes">M.U.S.C.L.E</option>
+        <option value="road-fighter.nes">Road Fighter</option>
+        <option value="shadow-of-the-ninja.nes">Shadow Of The Ninja</option>
+        <option value="yie-ar-kungfu.nes">Yie-Ar Kung Fu</option>
+    </select>
+    <button onclick="startSignaling(1, '')" class="signaling">Play as Player 1</button>
+</div>
 <br/>
 <label for="roomId" id="roomLabel">Room id: </label><input type="text" id="roomId" class="signaling">
 <button onclick="startSignaling2Player()" class="signaling">Play as Player 2</button>
@@ -62,6 +82,8 @@
             type: "answer"
         }))
         document.querySelector("#playerId").innerText = "You are " + (playerId === 1 ? "player 1" : "player 2")
+        document.querySelector("#gameId").style.display = "none"
+        document.querySelector("#gameIdLabel").style.display = "none"
     }
 
     function startSignaling2Player() {
@@ -71,6 +93,9 @@
 
     function startSignaling(player, roomId) {
         playerId = player
+        const gameSelectBox = document.querySelector("#gameId")
+        const gameId = gameSelectBox.options[gameSelectBox.selectedIndex].value
+        console.log(gameId)
 
         const ws = new WebSocket(wsUrl)
 
@@ -104,7 +129,8 @@
                     id: "offer",
                     data: pc.localDescription.sdp,
                     player_id: player,
-                    room_id: roomId
+                    room_id: roomId,
+                    game_id: gameId
                 }))
             })
 
@@ -177,6 +203,5 @@
         }
         inputChannel.onclose = () => clearInterval(sendInputInterval)
     }
-
 </script>
 </html>

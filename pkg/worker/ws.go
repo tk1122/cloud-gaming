@@ -16,6 +16,7 @@ type wsPacket struct {
 	Data     string     `json:"data"`
 	RoomId   string     `json:"room_id"`
 	PlayerId int        `json:"player_id"`
+	GameId   string     `json:"game_id"`
 }
 
 const (

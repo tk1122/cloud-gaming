@@ -5,6 +5,7 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/pion/webrtc/v3"
 	"log"
+	"os"
 	"sync"
 	"time"
 )
@@ -15,6 +16,7 @@ type client struct {
 	peerConn   *webrtc.PeerConnection
 	track      *webrtc.Track
 	playerId   playerId
+	gameId     string
 	room       *room
 }
 
@@ -33,9 +35,9 @@ func newClient(wsConn *websocket.Conn, peerConn *webrtc.PeerConnection, track *w
 	}
 }
 
-func (client *client) joinOrStartGame() {
+func (client *client) joinOrStartGame(gameId string) {
 	if client.room != nil {
-		client.room.joinOrStartGame()
+		client.room.joinOrStartGame(gameId)
 	}
 }
 
@@ -65,7 +67,7 @@ func (client *client) registerICEConnectionEvents(pendingCandidates []*webrtc.IC
 		log.Println("ice connection state changed:", state)
 		switch state {
 		case webrtc.ICEConnectionStateConnected:
-			client.joinOrStartGame()
+			client.joinOrStartGame(client.gameId)
 		case webrtc.ICEConnectionStateClosed:
 			client.leaveOrStopGame()
 		case webrtc.ICEConnectionStateFailed:
@@ -158,12 +160,18 @@ func (client *client) listenPeerMessages(pendingCandidate []*webrtc.ICECandidate
 			if req.PlayerId == int(PlayerTwo) {
 				ok := false
 				if room, ok = rooms[req.RoomId]; !ok {
-					log.Println("room not found")
+					log.Println("room not found", req.RoomId)
 					break
 				}
 				client.setPlayerId(PlayerTwo)
 				room.addClient(client)
 			}
+
+			if _, err := os.Stat("games/" + req.GameId); os.IsNotExist(err) {
+				log.Println("game not found", req.GameId)
+				break
+			}
+			client.gameId = req.GameId
 
 			err = client.peerConn.SetRemoteDescription(webrtc.SessionDescription{
 				SDP:  req.Data,
