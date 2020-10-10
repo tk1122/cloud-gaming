@@ -17,7 +17,7 @@ type GameView struct {
 const (
 	PlayerOneFirstBit = "0"
 	PlayerTwoFirstBit = "1"
-	playerKeyNums     = 8
+	playerKeyNums     = 9
 )
 
 func NewGameView(director *Director, console *nes.Console, hash string, imageChannel chan *image.RGBA, inputChannel chan string) View {
@@ -51,9 +51,15 @@ func (view *GameView) listenToInputChannel() {
 }
 
 func (view *GameView) updateControllers() {
-	var player1Keys, player2Keys [playerKeyNums]bool
-	copy(player1Keys[:], view.keyPressed[:playerKeyNums])
-	copy(player2Keys[:], view.keyPressed[playerKeyNums:])
+	// the last bit of each player keys set is Reset key
+	if view.keyPressed[8] || view.keyPressed[17] {
+		view.console.Reset()
+		return
+	}
+
+	var player1Keys, player2Keys [playerKeyNums - 1]bool
+	copy(player1Keys[:], view.keyPressed[:playerKeyNums - 1])
+	copy(player2Keys[:], view.keyPressed[playerKeyNums: 2 * playerKeyNums - 2])
 	view.console.Controller1.SetButtons(player1Keys)
 	view.console.Controller2.SetButtons(player2Keys)
 }

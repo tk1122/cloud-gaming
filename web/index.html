@@ -10,12 +10,16 @@
 </style>
 <div id="remoteVideos"></div>
 <br/>
+<b>Controls:</b>
 <div>
-    Use Up, Down, Left, Right to move <br/>
-    Z to A <br/>
-    X to B <br/>
-    C to select <br/>
-    V to start <br/>
+    Press Up, Down, Left, Right arrow to move <br/>
+    Press Z to A <br/>
+    Press and hold Z to turbo A<br/>
+    Press X to B <br/>
+    Press and hold X to turbo B <br/>
+    Press C to select <br/>
+    Press V to start or pause <br/>
+    Press R to reset <br/>
 </div>
 <br>
 <div>
@@ -164,7 +168,7 @@
             document.getElementById('remoteVideos').appendChild(el)
         }
 
-        const keysList = ["z", "x", "c", "v", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"]
+        const keysList = ["z", "x", "c", "v", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "r"]
         const keysState = new Array(keysList.length).fill(false)
         let unchangedPackets = 1;
 
