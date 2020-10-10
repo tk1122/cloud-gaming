@@ -59,7 +59,7 @@ func (view *GameView) updateControllers() {
 
 	var player1Keys, player2Keys [playerKeyNums - 1]bool
 	copy(player1Keys[:], view.keyPressed[:playerKeyNums - 1])
-	copy(player2Keys[:], view.keyPressed[playerKeyNums: 2 * playerKeyNums - 2])
+	copy(player2Keys[:], view.keyPressed[playerKeyNums: 2 * playerKeyNums - 1])
 	view.console.Controller1.SetButtons(player1Keys)
 	view.console.Controller2.SetButtons(player2Keys)
 }
